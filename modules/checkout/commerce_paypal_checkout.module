@@ -1,0 +1,130 @@
+<?php
+
+/**
+ * @file
+ * Implements PayPal Checkout in Drupal Commerce checkout.
+ */
+
+/**
+ * Implements hook_commerce_payment_method_info().
+ */
+function commerce_paypal_checkout_commerce_payment_method_info() {
+  $payment_methods = array();
+
+  $payment_methods['paypal_checkout'] = array(
+    'base' => 'commerce_paypal_checkout',
+    'title' => t('PayPal Checkout'),
+    'display_title' => t('PayPal'),
+    'short_title' => t('PayPal Checkout'),
+    'description' => t('PayPal Checkout'),
+    'terminal' => FALSE,
+    'offsite' => TRUE,
+    'offsite_autoredirect' => FALSE,
+  );
+
+  return $payment_methods;
+}
+
+/**
+ * Returns the default settings for the PayPal Checkout payment method.
+ */
+function commerce_paypal_checkout_default_settings() {
+  $default_settings = array(
+    'client_id' => '',
+    'secret' => '',
+    'server' => 'sandbox',
+    'intent' => 'capture',
+    'shipping_preference' => 'get_from_file',
+    'update_billing_profiles' => TRUE,
+    'enable_on_cart' => TRUE,
+  );
+
+  if (module_exists('commerce_shipping')) {
+    $default_settings['update_shipping_profiles'] = TRUE;
+  }
+
+  return $default_settings;
+}
+
+/**
+ * Payment method callback: settings form.
+ */
+function commerce_paypal_checkout_settings_form($settings = array()) {
+  $form = array();
+
+  // Merge default settings into the stored settings array.
+  $settings = (array) $settings + commerce_paypal_checkout_default_settings();
+  $shipping_module_enabled = module_exists('commerce_shipping');
+
+  $form['client_id'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Client ID'),
+    '#maxlength' => 255,
+    '#default_value' => $settings['client_id'],
+    '#required' => TRUE,
+  );
+  $form['secret'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Secret'),
+    '#maxlength' => 255,
+    '#default_value' => $settings['secret'],
+    '#required' => TRUE,
+  );
+  $form['server'] = array(
+    '#type' => 'radios',
+    '#title' => t('PayPal server'),
+    '#options' => array(
+      'sandbox' => ('Sandbox - use for testing, requires a PayPal Sandbox account'),
+      'live' => ('Live - use for processing real transactions'),
+    ),
+    '#default_value' => $settings['server'],
+  );
+  $form['intent'] = array(
+    '#type' => 'radios',
+    '#title' => t('Intent'),
+    '#options' => [
+      'capture' => t('Capture'),
+      'authorize' => t('Authorize'),
+    ],
+    '#default_value' => $settings['intent'],
+  );
+  $form['shipping_preference'] = array(
+    '#type' => 'radios',
+    '#title' => t('Shipping address collection'),
+    '#description' => t('PayPal Checkout will only request a shipping address if the Shipping module is enabled to store the address in the order.'),
+    '#options' => [
+      'no_shipping' => t('Do not ask for a shipping address at PayPal.'),
+    ],
+    '#default_value' => 'no_shipping',
+  );
+
+  if ($shipping_module_enabled) {
+    $form['shipping_preference']['#options'] += array(
+      'get_from_file' => t('Ask for a shipping address at PayPal even if the order already has one.'),
+      'set_provided_address' => t('Ask for a shipping address at PayPal if the order does not have one yet.'),
+    );
+    $form['shipping_preference']['#default_value'] = $settings['shipping_preference'];
+  }
+
+  $form['update_billing_profiles'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Update billing customer profiles with address information the customer enters at PayPal.'),
+    '#default_value' => $settings['update_billing_profiles'],
+  );
+
+  if ($shipping_module_enabled) {
+    $form['update_shipping_profiles'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Update shipping customer profiles with address information the customer enters at PayPal.'),
+      '#default_value' => $settings['update_shipping_profiles'],
+    );
+  }
+
+  $form['enable_on_cart'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Show the PayPal Checkout button on the cart form.'),
+    '#default_value' => $settings['enable_on_cart'],
+  );
+
+  return $form;
+}
