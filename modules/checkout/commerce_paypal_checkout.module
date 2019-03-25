@@ -573,3 +573,137 @@ function commerce_paypal_checkout_redirect_form($form, &$form_state, $order, $pa
   );
   return $form;
 }
+
+/**
+ * Payment method callback: redirect form return validation.
+ */
+function commerce_paypal_checkout_redirect_form_validate($order, $payment_method) {
+  $payment_method['settings'] += commerce_paypal_checkout_default_settings();
+
+  // Check if the PayPal order ID is known, as well as the "flow".
+  if (empty($order->data['commerce_paypal_checkout']['remote_id'] ||
+    !isset($order->data['commerce_paypal_checkout']['flow']))) {
+    return FALSE;
+  }
+  $flow = $order->data['commerce_paypal_checkout']['flow'];
+  $api_client = commerce_paypal_checkout_api_client($payment_method['settings']);
+  if (!$api_client) {
+    return FALSE;
+  }
+  $remote_id = $order->data['commerce_paypal_checkout']['remote_id'];
+  try {
+    $paypal_order = $api_client->getOrder($remote_id);
+  }
+  catch (\Exception $exception) {
+    watchdog_exception('commerce_paypal_checkout', $exception);
+    return FALSE;
+  }
+  $order_total = field_get_items('commerce_order', $order, 'commerce_order_total', LANGUAGE_NONE);
+  $paypal_amount = $paypal_order['purchase_units'][0]['amount'];
+  $paypal_total = commerce_currency_decimal_to_amount($paypal_amount['value'], $paypal_amount['currency_code']);
+  // Check the remote status, and that the PayPal total matches the order total.
+  if (!in_array($paypal_order['status'], ['APPROVED', 'SAVED']) ||
+    $paypal_total != $order_total[0]['amount'] ||
+    $paypal_amount['currency_code'] !=  $order_total[0]['currency_code']) {
+    return FALSE;
+  }
+  // Store the intent for later reuse, it can't be updated, so no risk in
+  // being out of sync.
+  $order->data['commerce_paypal_checkout']['intent'] = strtolower($paypal_order['intent']);
+
+  $payer = $paypal_order['payer'];
+  // If the user is anonymous, add their PayPal e-mail to the order.
+  if (empty($order->mail)) {
+    $order->mail = $payer['email_address'];
+  }
+
+  // Recalculate the price of products on the order in case taxes have
+  // changed or prices have otherwise been affected.
+  if ($flow == 'shortcut') {
+    commerce_cart_order_refresh($order);
+  }
+  // Save the changes to the order.
+  commerce_order_save($order);
+
+  if ($flow == 'mark') {
+    return commerce_paypal_checkout_do_payment($order, $payment_method);
+  }
+}
+
+/**
+ * Capture/authorize a PayPal order and create a payment transaction.
+ *
+ * @param $order
+ *   The order the payment is for.
+ * @param $payment_method
+ *   The PayPal Checkout payment method instance whose settings should
+ *   be used to submit the request.
+ *
+ * @return
+ *   Boolean indicating the success or failure of the payment request.
+ */
+function commerce_paypal_checkout_do_payment($order, $payment_method) {
+  if (empty($order->data['commerce_paypal_checkout']['remote_id'])) {
+    return FALSE;
+  }
+  $paypal_checkout_data = $order->data['commerce_paypal_checkout'];
+  $intent = isset($paypal_checkout_data['intent']) ? $paypal_checkout_data['intent'] : $payment_method['settings']['intent'];
+  $api_client = commerce_paypal_checkout_api_client($payment_method['settings']);
+  try {
+    if ($intent == 'capture') {
+      $response = $api_client->captureOrder($paypal_checkout_data['remote_id']);
+      $remote_payment = $response['purchase_units'][0]['payments']['captures'][0];
+    }
+    else {
+      $response = $api_client->authorizeOrder($paypal_checkout_data['remote_id']);
+      $remote_payment = $response['purchase_units'][0]['payments']['authorizations'][0];
+    }
+  }
+  catch (\Exception $exception) {
+    watchdog_exception('commerce_paypal_checkout', $exception);
+    // Display an error message and remain on the same page.
+    drupal_set_message(t('We could not complete your payment with PayPal. Please try again or contact us if the problem persists.'), 'error');
+    watchdog('commerce_paypal_checkout', 'PayPal Checkout transaction failed for order @order_number.', array('@order_number' => $order->order_number), WATCHDOG_ERROR);
+    return FALSE;
+  }
+  $remote_status = strtolower($remote_payment['status']);
+
+  // Prepare a transaction object to log the API response.
+  $transaction = commerce_payment_transaction_new('paypal_checkout', $order->order_id);
+  $transaction->instance_id = $payment_method['instance_id'];
+  $transaction->amount = commerce_currency_decimal_to_amount($remote_payment['amount']['value'], $remote_payment['amount']['currency_code']);
+  $transaction->currency_code = $remote_payment['amount']['currency_code'];
+  $transaction->payload[REQUEST_TIME] = $response;
+  $transaction->remote_id = $remote_payment['id'];
+  $transaction->remote_status = $remote_payment['status'];
+
+  if (in_array($remote_status, ['denied', 'expired', 'declined'])) {
+    $transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
+    commerce_payment_transaction_save($transaction);
+    // Display an error message and remain on the same page.
+    drupal_set_message(t('We could not complete your payment with PayPal. Please try again or contact us if the problem persists.'), 'error');
+    watchdog('commerce_paypal_checkout', 'PayPal Checkout transaction failed for order @order_number.', array('@order_number' => $order->order_number), WATCHDOG_ERROR);
+    return FALSE;
+  }
+
+  // Map the remote status to a Drupal commerce payment status.
+  $status_mapping = array(
+    'created' => COMMERCE_PAYMENT_STATUS_PENDING,
+    'pending' => COMMERCE_PAYMENT_STATUS_PENDING,
+    'completed' => COMMERCE_PAYMENT_STATUS_SUCCESS,
+  );
+
+  // If we do not know how to handle this remote payment status, set the payment
+  // status to failure and stop here.
+  if (!isset($status_mapping[$remote_status])) {
+    $transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
+    commerce_payment_transaction_save($transaction);
+    // Display an error message and remain on the same page.
+    drupal_set_message(t('We could not complete your payment with PayPal. Please try again or contact us if the problem persists.'), 'error');
+    watchdog('commerce_paypal_checkout', 'PayPal Checkout transaction failed for order @order_number.', array('@order_number' => $order->order_number), WATCHDOG_ERROR);
+    return FALSE;
+  }
+  $transaction->status = $status_mapping[$remote_status];
+  commerce_payment_transaction_save($transaction);
+  return TRUE;
+}
