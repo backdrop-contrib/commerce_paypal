@@ -355,8 +355,73 @@ function theme_commerce_paypal_checkout_smart_payment_buttons($variables) {
       'src' => url('https://www.paypal.com/sdk/js', $options),
     ),
   );
+  drupal_add_css($path . '/css/commerce_paypal_checkout.css');
   drupal_add_js($settings, 'setting');
   drupal_add_js($path . '/js/commerce_paypal_checkout.js');
   $id = drupal_html_id('paypal-buttons-container');
   return '<div id="' . $id . '" class="paypal-buttons-container"></div>';
+}
+
+/**
+ * Returns the first configured PayPal checkout payment method instance for the
+ * given order, if any.
+ *
+ * @param $order
+ *   The order that needs to be checked.
+ *
+ * @return array|bool
+ *   The first payment method instance found for given order, FALSE otherwise.
+ */
+function commerce_paypal_checkout_get_payment_method_instance($order) {
+  if (empty($order->payment_methods)) {
+    $order->payment_methods = array();
+    rules_invoke_all('commerce_payment_methods', $order);
+
+    // Sort the payment methods array by the enabling Rules' weight values.
+    uasort($order->payment_methods, 'drupal_sort_weight');
+  }
+
+  foreach (array_keys($order->payment_methods) as $instance_id) {
+    // Explode the method key into its component parts.
+    list($method_id) = explode('|', $instance_id);
+    if ($method_id != 'paypal_checkout') {
+      continue;
+    }
+    return commerce_payment_method_instance_load($instance_id);
+  }
+
+  return FALSE;
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function commerce_paypal_checkout_form_alter(&$form, &$form_state, $form_id) {
+  if (!is_string($form_id)) {
+    return;
+  }
+
+  // If we're altering a shopping cart form.
+  if (strpos($form_id, 'views_form_commerce_cart_form_') === 0) {
+    // If the cart form View shows line items...
+    if (!empty($form_state['build_info']['args'][0]->result)) {
+      $order = $form_state['order'];
+      $payment_method = commerce_paypal_checkout_get_payment_method_instance($order);
+
+      // If no PayPal checkout payment method is configured, or if the buttons
+      // are explicitly not shown on the cart page, stop here.
+      if (!$payment_method || empty($payment_method['settings']['enable_on_cart'])) {
+        return;
+      }
+
+      $form['smart_payment_buttons'] = array(
+        '#theme' => 'commerce_paypal_checkout_smart_payment_buttons',
+        '#payment_method' => $payment_method,
+        '#commit' => FALSE,
+        '#flow' => 'shortcut',
+        '#order_id' => $order->order_id,
+        '#weight' => 100,
+      );
+    }
+  }
 }
