@@ -42,6 +42,73 @@ function commerce_paypal_checkout_method_instance_load($rule_name) {
 }
 
 /**
+ * Implements hook_commerce_checkout_page_info().
+ */
+function commerce_paypal_checkout_commerce_checkout_page_info() {
+  $checkout_pages = array();
+
+  $checkout_pages['paypal_checkout'] = array(
+    'title' => t('Confirm order'),
+    'help' => t('Confirm your order information and use the button at the bottom of the page to finalize your payment.'),
+    'status_cart' => FALSE,
+    'locked' => TRUE,
+    'buttons' => FALSE,
+    'weight' => 30,
+  );
+
+  return $checkout_pages;
+}
+
+/**
+ * Implements hook_commerce_checkout_pane_info().
+ */
+function commerce_paypal_checkout_commerce_checkout_pane_info() {
+  $checkout_panes = array();
+
+  $checkout_panes['paypal_checkout_review'] = array(
+    'title' => t('Review and confirm your order'),
+    'name' => t('PayPal Checkout review and confirm (only to be used on the confirm order page)'),
+    'file' => 'includes/commerce_paypal_checkout.checkout_pane.inc',
+    'base' => 'commerce_paypal_checkout_review_pane',
+    'page' => 'paypal_checkout',
+    'fieldset' => FALSE,
+  );
+
+  return $checkout_panes;
+}
+
+/**
+ * Implements hook_commerce_checkout_router().
+ */
+function commerce_paypal_checkout_commerce_checkout_router($order, $checkout_page) {
+  // If the current page is the PayPal Checkout page but the current order did
+  // not use the shortcut Checkout flow...
+  if ($checkout_page['page_id'] == 'paypal_checkout' &&
+    (empty($order->data['commerce_paypal_checkout']['flow']) || $order->data['commerce_paypal_checkout']['flow'] != 'shortcut')) {
+    // Update the order status to the next checkout page.
+    $next_page = $checkout_page['next_page'];
+    $order = commerce_order_status_update($order, 'checkout_' . $next_page, FALSE, FALSE);
+
+    // Inform modules of checkout completion if the next page is Completed.
+    if ($next_page == 'complete') {
+      commerce_checkout_complete($order);
+    }
+
+    // Redirect to the URL for the new checkout page.
+    $target_uri = commerce_checkout_order_uri($order);
+    return drupal_goto($target_uri);
+  }
+}
+
+/**
+ * Returns the checkout pane IDs of checkout panes that should be embedded in
+ * the PayPal Checkout review and confirm page.
+ */
+function commerce_paypal_checkout_embedded_checkout_panes() {
+  return array_filter(variable_get('commerce_paypal_checkout_review_embedded_panes', array()));
+}
+
+/**
  * Implements hook_commerce_payment_method_info().
  */
 function commerce_paypal_checkout_commerce_payment_method_info() {
@@ -826,5 +893,44 @@ function commerce_paypal_checkout_customer_profile($order, $profile_type, $paypa
   // Save the order if specified.
   if (!$skip_save) {
     $order_wrapper->save();
+  }
+}
+
+/**
+ * Update the PayPal order.
+ *
+ * @param $order
+ *   The order.
+ * @param $payment_method
+ *   The payment method instance.
+ *
+ * @return bool
+ *   TRUE if the update was successful, FALSE otherwise.
+ *
+ * @see commerce_paypal_checkout_review_pane_checkout_form_submit()
+ */
+function commerce_paypal_checkout_update_order($order, $payment_method) {
+  if (!isset($order->data['commerce_paypal_checkout']['remote_id'])) {
+    return FALSE;
+  }
+  $remote_id = $order->data['commerce_paypal_checkout']['remote_id'];
+  $request_body = commerce_paypal_checkout_prepare_order_request($order, $payment_method['settings']);
+  $update_params = array(
+    array(
+      'op' => 'replace',
+      'path' => "/purchase_units/@reference_id=='default'",
+      'value' => $request_body['purchase_units'][0],
+    ),
+  );
+  $api_client = commerce_paypal_checkout_api_client($payment_method['settings']);
+  try {
+    $api_client->updateOrder($remote_id, $update_params);
+    // Assume the update worked if we ended up here, if the update failed,
+    // an exception was thrown.
+    return TRUE;
+  }
+  catch (\Exception $exception) {
+    watchdog_exception('commerce_paypal_checkout', $exception);
+    return FALSE;
   }
 }
