@@ -4,3 +4,6 @@
     width: 50%;
   }
 }
+.page-checkout-payment .checkout-help {
+  display: none;
+}

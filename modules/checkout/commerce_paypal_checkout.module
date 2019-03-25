@@ -559,3 +559,17 @@ function commerce_paypal_checkout_api_client($config) {
   $instances[$config['client_id']] = new PayPalCheckoutClient($config);
   return $instances[$config['client_id']];
 }
+
+/**
+ * Payment method callback: redirect form.
+ */
+function commerce_paypal_checkout_redirect_form($form, &$form_state, $order, $payment_method) {
+  $form['smart_payment_buttons'] = array(
+    '#theme' => 'commerce_paypal_checkout_smart_payment_buttons',
+    '#payment_method' => $payment_method,
+    '#commit' => TRUE,
+    '#order_id' => $order->order_id,
+    '#flow' => 'mark',
+  );
+  return $form;
+}
