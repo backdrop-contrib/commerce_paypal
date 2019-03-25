@@ -128,3 +128,182 @@ function commerce_paypal_checkout_settings_form($settings = array()) {
 
   return $form;
 }
+
+/**
+ * Prepare the request parameters for the create/update order request.
+ *
+ * @param $order
+ *   The order to prepare the request for.
+ * @param array $settings
+ *   The payment method settings.
+ */
+function commerce_paypal_checkout_prepare_order_request($order, $settings) {
+  $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+  $product_line_item_types = commerce_product_line_item_types();
+  $item_total = 0;
+  $shipping_total = 0;
+  $items = array();
+  $order_total = $order_wrapper->commerce_order_total->value();
+  $currency_code = $order_total['currency_code'];
+  foreach ($order_wrapper->commerce_line_items as $line_item_wrapper) {
+    if (!$line_item_wrapper->value()) {
+      continue;
+    }
+    $unit_price = $line_item_wrapper->commerce_unit_price->value();
+    // PayPal Checkout doesn't support passing negative items.
+    if ($unit_price['amount'] < 0) {
+      continue;
+    }
+    if ($line_item_wrapper->getBundle() == 'shipping') {
+      $shipping_total += $unit_price['amount'];
+    }
+    else {
+      $item_total += $line_item_wrapper->commerce_total->amount->value();
+      $item = array(
+        'name' => mb_substr(commerce_line_item_title($line_item_wrapper->value()), 0, 127),
+        'unit_amount' => array(
+          'currency_code' => $currency_code,
+          'value' => commerce_paypal_price_amount($unit_price['amount'], $unit_price['currency_code']),
+        ),
+        'quantity' => intval($line_item_wrapper->quantity->value()),
+      );
+      // Pass the "SKU" for product line items.
+      if (in_array($line_item_wrapper->getBundle(), $product_line_item_types)) {
+        $item['sku'] = $line_item_wrapper->commerce_product->sku->value();
+      }
+      $items[] = $item;
+    }
+  }
+
+  // @todo: Support passing discount in the breakdown when
+  // https://github.com/paypal/paypal-checkout-components/issues/1016 is fixed.
+  $breakdown = array(
+    'item_total' => array(
+      'currency_code' => $currency_code,
+      'value' => commerce_paypal_price_amount($item_total, $currency_code),
+    ),
+  );
+
+  if ($shipping_total) {
+    $breakdown['shipping'] = array(
+      'currency_code' => $currency_code,
+      'value' => commerce_paypal_price_amount($shipping_total, $currency_code),
+    );
+  }
+
+  if (module_exists('commerce_tax')) {
+    $tax_total = commerce_round(COMMERCE_ROUND_HALF_UP, commerce_tax_total_amount($order_total['data']['components'], FALSE, $currency_code));
+    if ($tax_total) {
+      $breakdown['tax_total'] = array(
+        'currency_code' => $currency_code,
+        'value' => commerce_paypal_price_amount($tax_total, $currency_code),
+      );
+    }
+  }
+
+  $payer = [];
+  if (!empty($order->mail)) {
+    $payer['email_address'] = $order->mail;
+  }
+
+  // If we have a billing address, pass it to PayPal.
+  if (isset($order_wrapper->commerce_customer_billing) && !empty($order_wrapper->commerce_customer_billing->commerce_customer_address)) {
+    $address = $order_wrapper->commerce_customer_billing->commerce_customer_address->value();
+    $payer += commerce_paypal_checkout_format_address($address, 'billing');
+  }
+
+  $request_body = array(
+    'intent' => strtoupper($settings['intent']),
+    'purchase_units' => array(
+      array(
+        'reference_id' => 'default',
+        'custom_id' => $order->order_id,
+        'invoice_id' => $order->order_id . '-' . time(),
+        'amount' => array(
+          'currency_code' => $currency_code,
+          'value' => commerce_paypal_price_amount($order_total['amount'], $order_total['currency_code']),
+          'breakdown' => $breakdown,
+        ),
+        'items' => $items,
+      ),
+    ),
+    'application_context' => array(
+      'brand_name' => mb_substr(variable_get('site_name', ''), 0, 127),
+    ),
+  );
+
+  // Send the payer if not empty.
+  if ($payer) {
+    $request_body['payer'] = $payer;
+  }
+
+  $shipping_exists = module_exists('commerce_shipping');
+  $shipping_address = FALSE;
+  // If the shipping module is enabled...
+  if ($shipping_exists) {
+    // If we have a shipping address, pass it to PayPal.
+    if (isset($order_wrapper->commerce_customer_shipping) && !empty($order_wrapper->commerce_customer_shipping->commerce_customer_address)) {
+      $address = $order_wrapper->commerce_customer_shipping->commerce_customer_address->value();
+      $shipping_address = commerce_paypal_checkout_format_address($address, 'shipping');
+    }
+  }
+  $shipping_preference = $settings['shipping_preference'];
+
+  // The shipping module isn't enabled, override the shipping preference
+  // configured.
+  if (!$shipping_exists) {
+    $shipping_preference = 'no_shipping';
+  }
+  else {
+    // If no shipping address was already collected, override the shipping
+    // preference to "GET_FROM_FILE" so that the shipping address is collected
+    // on the PayPal site.
+    if ($shipping_preference == 'set_provided_address' && !$shipping_address) {
+      $shipping_preference = 'get_from_file';
+    }
+  }
+
+  // No need to pass a shipping_address if the shipping address collection
+  // is configured to "no_shipping".
+  if ($shipping_address && $shipping_preference !== 'no_shipping') {
+    $request_body['purchase_units'][0]['shipping'] = $shipping_address;
+  }
+  $request_body['application_context']['shipping_preference'] = strtoupper($shipping_preference);
+  return $request_body;
+}
+
+/**
+ * Formats the given address into a format expected by PayPal.
+ *
+ * @param array $address
+ *   The address to format.
+ * @param $profile_type
+ *   The profile type ("billing"|"shipping").
+ *
+ * @return array
+ *   The formatted address.
+ */
+function commerce_paypal_checkout_format_address($address, $profile_type) {
+  $return = array(
+    'address' => array(
+      'address_line_1' => $address['thoroughfare'],
+      'address_line_2' => $address['premise'],
+      'admin_area_2' => mb_substr($address['locality'], 0, 120),
+      'admin_area_1' => $address['administrative_area'],
+      'postal_code' => mb_substr($address['postal_code'], 0, 60),
+      'country_code' => $address['country'],
+    ),
+  );
+  if ($profile_type == 'billing') {
+    $return['name'] = array(
+      'given_name' => $address['first_name'],
+      'surname' => $address['last_name'],
+    );
+  }
+  elseif ($profile_type == 'shipping') {
+    $return['name'] = array(
+      'full_name' => $address['name_line'],
+    );
+  }
+  return $return;
+}
