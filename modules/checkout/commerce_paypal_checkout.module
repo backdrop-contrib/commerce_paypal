@@ -922,6 +922,7 @@ function commerce_paypal_checkout_update_order($order, $payment_method) {
       'value' => $request_body['purchase_units'][0],
     ),
   );
+  drupal_alter('commerce_paypal_checkout_update_order_request', $update_params, $order);
   $api_client = commerce_paypal_checkout_api_client($payment_method['settings']);
   try {
     $api_client->updateOrder($remote_id, $update_params);
