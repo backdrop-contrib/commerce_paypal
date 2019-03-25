@@ -307,3 +307,56 @@ function commerce_paypal_checkout_format_address($address, $profile_type) {
   }
   return $return;
 }
+
+/**
+ * Implements hook_theme().
+ */
+function commerce_paypal_checkout_theme($existing, $type, $theme, $path) {
+  return array(
+    'commerce_paypal_checkout_smart_payment_buttons' => array(
+      'variables' => array(
+        'payment_method' => array(),
+        'commit' => FALSE,
+        'order_id' => NULL,
+        'flow' => NULL,
+      ),
+    ),
+  );
+}
+
+/**
+ * Returns HTML for the Smart payment buttons.
+ *
+ * @param $variables
+ *   An associative array containing:
+ *   - payment_method: The payment method instance.
+ *   - commit: A boolean indicating whether to commit the transaction.
+ *   - order_id: The order ID.
+ *   - flow: The flow ("shortcut"|"mark").
+ *
+ * @ingroup themeable
+ */
+function theme_commerce_paypal_checkout_smart_payment_buttons($variables) {
+  $payment_method = $variables['payment_method'];
+  $settings = $payment_method['settings'];
+  if (empty($settings['client_id']) || empty($variables['order_id']) || empty($variables['flow'])) {
+    return;
+  }
+  $options = array(
+    'external' => TRUE,
+    'query' => array(
+      'client-id' => $settings['client_id'],
+      'commit' => $variables['commit'] ? 'true' : 'false',
+    ),
+  );
+  $path = drupal_get_path('module', 'commerce_paypal_checkout');
+  $settings = array(
+    'paypalCheckout' => array(
+      'src' => url('https://www.paypal.com/sdk/js', $options),
+    ),
+  );
+  drupal_add_js($settings, 'setting');
+  drupal_add_js($path . '/js/commerce_paypal_checkout.js');
+  $id = drupal_html_id('paypal-buttons-container');
+  return '<div id="' . $id . '" class="paypal-buttons-container"></div>';
+}
