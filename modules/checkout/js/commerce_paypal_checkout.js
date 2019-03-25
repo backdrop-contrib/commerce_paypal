@@ -8,7 +8,16 @@
   Drupal.paypalCheckout = {
     renderButtons: function(settings) {
       $('.paypal-buttons-container').once('rendered').each(function() {
-        paypal.Buttons().render('#' + $(this).attr('id'));
+        paypal.Buttons({
+          createOrder: function () {
+            return fetch(settings.createOrderUri)
+              .then(function (res) {
+                return res.json();
+              }).then(function (data) {
+                return data.id ? data.id : '';
+              });
+          }
+        }).render('#' + $(this).attr('id'));
       });
     },
     initialize: function (context, settings) {

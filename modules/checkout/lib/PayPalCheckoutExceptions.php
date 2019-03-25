@@ -5,7 +5,7 @@
  * Defines exception classes for use by the PayPalCheckoutClient class.
  */
 
-class PayPalCheckoutAuthenticationException extends PayPalCheckoutHttpException {}
+class PayPalCheckoutAuthenticationException extends \Exception {}
 
 /**
  * Defines a base class for HTTP response related exceptions.

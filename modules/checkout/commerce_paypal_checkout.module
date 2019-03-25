@@ -6,6 +6,35 @@
  */
 
 /**
+ * Implements hook_menu().
+ */
+function commerce_paypal_checkout_menu() {
+  return array(
+    'commerce-paypal-checkout/create-order/%commerce_order/%commerce_paypal_checkout_method_instance' => array(
+      'page callback' => 'commerce_paypal_checkout_create_order',
+      'page arguments' => array(2, 3),
+      'access callback' => 'commerce_checkout_access',
+      'access arguments' => array(2),
+      'type' => MENU_CALLBACK,
+    ),
+  );
+}
+
+/**
+ * Load the given PayPal checkout payment method instance.
+ *
+ * @param $rule_name
+ *   The enabling's rule name.
+ *
+ * @return
+ *   The payment method instance object which is identical to the payment method
+ *   object with the addition of the settings array.
+ */
+function commerce_paypal_checkout_method_instance_load($rule_name) {
+  return commerce_payment_method_instance_load("paypal_checkout|$rule_name");
+}
+
+/**
  * Implements hook_commerce_payment_method_info().
  */
 function commerce_paypal_checkout_commerce_payment_method_info() {
@@ -130,6 +159,30 @@ function commerce_paypal_checkout_settings_form($settings = array()) {
 }
 
 /**
+ * Page callback: Provide the createOrder() callback expected by the SDK.
+ */
+function commerce_paypal_checkout_create_order($order, $payment_method) {
+  $settings = $payment_method['settings'];
+  $api_client = commerce_paypal_checkout_api_client($settings);
+
+  if (!$api_client) {
+    drupal_json_output(array());
+    drupal_exit();
+  }
+  try {
+    $request_body = commerce_paypal_checkout_prepare_order_request($order, $payment_method['settings']);
+    $json = $api_client->createOrder($request_body);
+    drupal_json_output(array('id' => $json['id']));
+    drupal_exit();
+  }
+  catch (\Exception $exception) {
+    watchdog_exception('commerce_paypal_checkout', $exception);
+  }
+  drupal_json_output(array());
+  drupal_exit();
+}
+
+/**
  * Prepare the request parameters for the create/update order request.
  *
  * @param $order
@@ -201,7 +254,7 @@ function commerce_paypal_checkout_prepare_order_request($order, $settings) {
     }
   }
 
-  $payer = [];
+  $payer = array();
   if (!empty($order->mail)) {
     $payer['email_address'] = $order->mail;
   }
@@ -342,6 +395,8 @@ function theme_commerce_paypal_checkout_smart_payment_buttons($variables) {
   if (empty($settings['client_id']) || empty($variables['order_id']) || empty($variables['flow'])) {
     return;
   }
+  list(, $rule_name) = explode('|', $payment_method['instance_id']);
+  $order_id = $variables['order_id'];
   $options = array(
     'external' => TRUE,
     'query' => array(
@@ -353,6 +408,7 @@ function theme_commerce_paypal_checkout_smart_payment_buttons($variables) {
   $settings = array(
     'paypalCheckout' => array(
       'src' => url('https://www.paypal.com/sdk/js', $options),
+      'createOrderUri' => url("commerce-paypal-checkout/create-order/$order_id/$rule_name"),
     ),
   );
   drupal_add_css($path . '/css/commerce_paypal_checkout.css');
@@ -424,4 +480,31 @@ function commerce_paypal_checkout_form_alter(&$form, &$form_state, $form_id) {
       );
     }
   }
+}
+
+/**
+ * Returns an instantiated PayPal Checkout API client for the given settings.
+ *
+ * @param array $config
+ *   An associative array containing at least the following keys:
+ *   - client_id: The client ID.
+ *   - secret: The client secret.
+ *   - server: The API server ("sandbox or "live").
+ *
+ * @return PayPalCheckoutClient|NULL.
+ *   An instantiated PayPalCheckout client, NULL if no client_id/secret were
+ *   specified.
+ */
+function commerce_paypal_checkout_api_client($config) {
+  if (!isset($config['client_id']) || !isset($config['secret'])) {
+    return NULL;
+  }
+  $instances = &drupal_static(__FUNCTION__, array());
+
+  if (isset($instances[$config['client_id']])) {
+    return $instances[$config['client_id']];
+  }
+
+  $instances[$config['client_id']] = new PayPalCheckoutClient($config);
+  return $instances[$config['client_id']];
 }
