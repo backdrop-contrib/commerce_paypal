@@ -17,6 +17,13 @@ function commerce_paypal_checkout_menu() {
       'access arguments' => array(2),
       'type' => MENU_CALLBACK,
     ),
+    'commerce-paypal-checkout/approve-order/%commerce_order/%commerce_paypal_checkout_method_instance/%' => array(
+      'page callback' => 'commerce_paypal_checkout_approve_order',
+      'page arguments' => array(2, 3, 4),
+      'access callback' => 'commerce_checkout_access',
+      'access arguments' => array(2),
+      'type' => MENU_CALLBACK,
+    ),
   );
 }
 
@@ -180,6 +187,47 @@ function commerce_paypal_checkout_create_order($order, $payment_method) {
     watchdog_exception('commerce_paypal_checkout', $exception);
   }
   drupal_json_output(array());
+  drupal_exit();
+}
+
+/**
+ * Page callback: Provide the onApprove() callback expected by the SDK.
+ */
+function commerce_paypal_checkout_approve_order($order, $payment_method, $flow) {
+  $data = drupal_json_decode(file_get_contents('php://input'));
+
+  if (!in_array($flow, array('shortcut', 'mark')) || !isset($data['id'])) {
+    drupal_json_output(array());
+    drupal_exit();
+  }
+  // Store the PayPal order ID, and the "flow" used ("shortcut"|"mark").
+  // Note that we don't perform any validation here, that happens inside
+  // commerce_paypal_checkout_redirect_form_validate().
+  $order->data['commerce_paypal_checkout'] = array(
+    'flow' => $flow,
+    'remote_id' => $data['id'],
+  );
+
+  // The payment_redirect key is required in the payment return url.
+  if (empty($order->data['payment_redirect_key'])) {
+    $order->data['payment_redirect_key'] = drupal_hash_base64(time());
+  }
+  // We have to manually set the payment method if empty, it's also required
+  // by the payment redirect form validate callback.
+  if (empty($order->data['payment_method'])) {
+    $order->data['payment_method'] = $payment_method['instance_id'];
+  }
+
+  // Update the order status to the payment page for the shortcut flow.
+  if ($flow == 'shortcut') {
+    commerce_order_status_update($order, 'checkout_payment', FALSE, NULL, t('Customer clicked the Smart payment buttons on the cart page.'));
+  }
+  else {
+    commerce_order_save($order);
+  }
+
+  $return_url = url('checkout/' . $order->order_id . '/payment/return/' . $order->data['payment_redirect_key']);
+  drupal_json_output(array('redirectUri' => $return_url));
   drupal_exit();
 }
 
@@ -396,6 +444,7 @@ function theme_commerce_paypal_checkout_smart_payment_buttons($variables) {
   if (empty($settings['client_id']) || empty($variables['order_id']) || empty($variables['flow'])) {
     return;
   }
+  $flow = $variables['flow'];
   list(, $rule_name) = explode('|', $payment_method['instance_id']);
   $order_id = $variables['order_id'];
   $options = array(
@@ -410,6 +459,7 @@ function theme_commerce_paypal_checkout_smart_payment_buttons($variables) {
     'paypalCheckout' => array(
       'src' => url('https://www.paypal.com/sdk/js', $options),
       'createOrderUri' => url("commerce-paypal-checkout/create-order/$order_id/$rule_name"),
+      'onApproveUri' => url("commerce-paypal-checkout/approve-order/$order_id/$rule_name/$flow"),
     ),
   );
   drupal_add_css($path . '/css/commerce_paypal_checkout.css');

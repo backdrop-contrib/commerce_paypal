@@ -1,6 +1,6 @@
 /**
  * @file
- * Output PayPal Smart payment buttons.
+ * Renders the PayPal Smart payment buttons.
  */
 
 (function($) {
@@ -9,13 +9,27 @@
     renderButtons: function(settings) {
       $('.paypal-buttons-container').once('rendered').each(function() {
         paypal.Buttons({
-          createOrder: function () {
+          createOrder: function() {
             return fetch(settings.createOrderUri)
-              .then(function (res) {
+              .then(function(res) {
                 return res.json();
-              }).then(function (data) {
+              }).then(function(data) {
                 return data.id ? data.id : '';
               });
+          },
+          onApprove: function (data) {
+            return fetch(settings.onApproveUri, {
+              method: 'post',
+              body: JSON.stringify({
+                id: data.orderID
+              })
+            }).then(function(res) {
+              return res.json();
+            }).then(function(data) {
+              if (data.hasOwnProperty('redirectUri')) {
+                window.location.href = data.redirectUri;
+              }
+            });
           }
         }).render('#' + $(this).attr('id'));
       });
