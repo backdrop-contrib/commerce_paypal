@@ -267,6 +267,21 @@ class PayPalCheckoutClient {
   }
 
   /**
+   * Refunds a captured payment, by ID.
+   *
+   * @param $capture_id
+   *   The PayPal-generated ID for the captured payment to refund.
+   * @param array $parameters
+   *   (optional An array of parameters to pass as the request body.
+   *
+   * @return string[]
+   *   The API response JSON converted to an associative array.
+   */
+  public function refundPayment($capture_id, array $parameters = array()) {
+    return $this->submitRequest('POST', sprintf('v2/payments/captures/%s/refund', $capture_id), $parameters);
+  }
+
+  /**
    * Submits an API request to the PayPal server.
    *
    * @param string $method

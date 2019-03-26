@@ -54,7 +54,7 @@ function commerce_paypal_checkout_review_pane_settings_form() {
  * final details of the order and provide any final information required.
  */
 function commerce_paypal_checkout_review_pane_checkout_form(&$form, &$form_state, $checkout_pane, $order) {
-  $form_state['build_info']['files']['pane'] = drupal_get_path('module', 'commerce_paypal_ec') . '/includes/commerce_paypal_checkout.checkout_pane.inc';
+  $form_state['build_info']['files']['pane'] = drupal_get_path('module', 'commerce_paypal_checkout') . '/includes/commerce_paypal_checkout.checkout_pane.inc';
   $form_state['order'] = $order;
 
   // Adjust the weights of the help text and pane form to appear before the

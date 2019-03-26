@@ -132,3 +132,112 @@ function commerce_paypal_checkout_capture_form_submit($form, &$form_state) {
   // Redirect back to the current order payment page.
   $form_state['redirect'] = 'admin/commerce/orders/' . $form_state['order']->order_id . '/payment';
 }
+
+/**
+ * Form callback: allows the user to issue a credit on a prior transaction.
+ */
+function commerce_paypal_checkout_refund_form($form, &$form_state, $order, $transaction) {
+  $form_state['order'] = $order;
+  $form_state['transaction'] = $transaction;
+
+  // Load and store the payment method instance for this transaction.
+  $payment_method = commerce_payment_method_instance_load($transaction->instance_id);
+  $form_state['payment_method'] = $payment_method;
+
+  $default_amount = number_format(commerce_currency_amount_to_decimal($transaction->amount, $transaction->currency_code), 2, '.', '');
+
+  $form['amount'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Refund amount'),
+    '#description' => t('Enter the amount to be refunded back to the PayPal account.'),
+    '#default_value' => $default_amount,
+    '#field_suffix' => check_plain($transaction->currency_code),
+    '#size' => 16,
+  );
+
+  $form = confirm_form($form,
+    t('What amount do you want to refund?'),
+    'admin/commerce/orders/' . $order->order_id . '/payment',
+    '',
+    t('Refund'),
+    t('Cancel'),
+    'confirm'
+  );
+
+  return $form;
+}
+
+/**
+ * Validate handler: check the credit amount before attempting a refund request.
+ */
+function commerce_paypal_checkout_refund_form_validate($form, &$form_state) {
+  $transaction = $form_state['transaction'];
+  $amount = $form_state['values']['amount'];
+
+  // Ensure a positive numeric amount has been entered for refund.
+  if (!is_numeric($amount) || $amount <= 0) {
+    form_set_error('amount', t('You must specify a positive numeric amount to refund.'));
+  }
+
+  // Ensure the amount is less than or equal to the captured amount.
+  if ($amount > commerce_currency_amount_to_decimal($transaction->amount, $transaction->currency_code)) {
+    form_set_error('amount', t('You cannot refund more than you captured.'));
+  }
+
+  // If the transaction is older than 60 days, display an error message and redirect.
+  if (time() - $transaction->created > 86400 * 60) {
+    drupal_set_message(t('This transaction has passed its 60 day limit for issuing refunds.'), 'error');
+    drupal_goto('admin/commerce/orders/' . $form_state['order']->order_id . '/payment');
+  }
+}
+
+/**
+ * Submit handler: process a refund request.
+ */
+function commerce_paypal_checkout_refund_form_submit($form, &$form_state) {
+  $transaction = $form_state['transaction'];
+  $payment_method = $form_state['payment_method'];
+
+  $order = $form_state['order'];
+  $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+  $order_total = $order_wrapper->commerce_order_total->value();
+  $api_client = commerce_paypal_checkout_api_client($form_state['payment_method']['settings']);
+  $amount = commerce_currency_decimal_to_amount($form_state['values']['amount'], $order_total['currency_code']);
+
+  $params = array(
+    'amount' => array(
+      'value' => commerce_paypal_price_amount($amount, $transaction->currency_code),
+      'currency_code' => $transaction->currency_code,
+    ),
+  );
+  try {
+    $response = $api_client->refundPayment($transaction->remote_id, $params);
+    // Not sure this can happen...
+    if (strtolower($response['status']) != 'completed') {
+      drupal_set_message(t('Refund failed'));
+    }
+    else {
+      drupal_set_message(t('Refund for @amount issued successfully.', array('@amount' => commerce_currency_format($amount, $transaction->currency_code))));
+
+      // Create a new transaction to record the credit.
+      $credit_transaction = commerce_payment_transaction_new($payment_method['method_id'], $order->order_id);
+      $credit_transaction->instance_id = $payment_method['instance_id'];
+      $credit_transaction->remote_id = $response['id'];
+      $credit_transaction->amount = $amount * -1;
+      $credit_transaction->currency_code = $transaction->currency_code;
+      $credit_transaction->payload[REQUEST_TIME] = $response;
+      $credit_transaction->status = COMMERCE_PAYMENT_STATUS_SUCCESS;
+      $credit_transaction->remote_status = COMMERCE_CREDIT_CREDIT;
+      $credit_transaction->message = t('Refunded to @remote_id.', array('@remote_id' => $transaction->remote_id));
+
+      // Save the credit transaction.
+      commerce_payment_transaction_save($credit_transaction);
+    }
+  }
+  catch (PayPalCheckoutHttpException $exception) {
+    watchdog_exception('commerce_paypal_checkout', $exception);
+    drupal_set_message(t('Refund failed'));
+  }
+
+  $form_state['redirect'] = 'admin/commerce/orders/' . $order->order_id . '/payment';
+}
