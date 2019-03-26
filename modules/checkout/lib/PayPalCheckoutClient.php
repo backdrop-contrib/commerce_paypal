@@ -237,6 +237,36 @@ class PayPalCheckoutClient {
   }
 
   /**
+   * Captures an authorized payment, by ID.
+   *
+   * @param $authorization_id
+   *   The PayPal-generated ID for the authorized payment to capture.
+   * @param array $parameters
+   *   (optional An array of parameters to pass as the request body.
+   *
+   * @return string[]
+   *   The API response JSON converted to an associative array.
+   */
+  public function capturePayment($authorization_id, array $parameters = array()) {
+    return $this->submitRequest('POST', sprintf('v2/payments/authorizations/%s/capture', $authorization_id), $parameters);
+  }
+
+  /**
+   * Reauthorizes an authorized PayPal account payment, by ID.
+   *
+   * @param $authorization_id
+   *   The PayPal-generated ID of the authorized payment to reauthorize.
+   * @param array $parameters
+   *   (optional An array of parameters to pass as the request body.
+   *
+   * @return string[]
+   *   The API response JSON converted to an associative array.
+   */
+  public function reAuthorizePayment($authorization_id, array $parameters = array()) {
+    return $this->submitRequest('POST', sprintf('v2/payments/authorizations/%s/reauthorize', $authorization_id), $parameters);
+  }
+
+  /**
    * Submits an API request to the PayPal server.
    *
    * @param string $method
@@ -259,7 +289,7 @@ class PayPalCheckoutClient {
     $this->headers['Authorization'] = 'Bearer ' . $this->getAccessToken();
     $url = $this->baseUrl() . '/' . $path;
     $ch = curl_init();
-    self::setDefaultCurlOptions($ch);
+    static::setDefaultCurlOptions($ch);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
     if (!empty($parameters)) {
       if ($this->headers['Content-Type'] == 'application/json') {
