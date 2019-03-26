@@ -134,6 +134,60 @@ function commerce_paypal_checkout_capture_form_submit($form, &$form_state) {
 }
 
 /**
+ * Form callback: allows the user to void a transaction.
+ */
+function commerce_paypal_checkout_void_form($form, &$form_state, $order, $transaction) {
+  $form_state['order'] = $order;
+  $form_state['transaction'] = $transaction;
+
+  // Load and store the payment method instance for this transaction.
+  $payment_method = commerce_payment_method_instance_load($transaction->instance_id);
+  $form_state['payment_method'] = $payment_method;
+
+  $form['markup'] = array(
+    '#markup' => t('Are you sure that you want to void this transaction?'),
+  );
+
+  $form = confirm_form($form,
+    t('Are you sure that you want to void this transaction?'),
+    'admin/commerce/orders/' . $order->order_id . '/payment',
+    '',
+    t('Void'),
+    t('Cancel'),
+    'confirm'
+  );
+
+  return $form;
+}
+
+/**
+ * Submit handler: process the void request.
+ */
+function commerce_paypal_checkout_void_form_submit($form, &$form_state) {
+  $transaction = $form_state['transaction'];
+  $api_client = commerce_paypal_checkout_api_client($form_state['payment_method']['settings']);
+
+  try {
+    // This API call doesn't return content, so nothing to check, if no
+    // exception is thrown, this means the void operation succeeded.
+    $api_client->voidPayment($transaction->remote_id);
+    drupal_set_message(t('Transaction successfully voided.'));
+
+    // Set the remote and local status accordingly.
+    $transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
+    $transaction->remote_status = COMMERCE_CREDIT_VOID;
+
+    // Update the transaction message to show that it has been voided.
+    $transaction->message .= '<br />' . t('Voided: @date', array('@date' => format_date(REQUEST_TIME, 'short')));
+    commerce_payment_transaction_save($transaction);
+  }
+  catch (PayPalCheckoutHttpException $exception) {
+    drupal_set_message(t('The void operation failed, so the transaction will remain in a pending status.'), 'error');
+  }
+  $form_state['redirect'] = 'admin/commerce/orders/' . $form_state['order']->order_id . '/payment';
+}
+
+/**
  * Form callback: allows the user to issue a credit on a prior transaction.
  */
 function commerce_paypal_checkout_refund_form($form, &$form_state, $order, $transaction) {

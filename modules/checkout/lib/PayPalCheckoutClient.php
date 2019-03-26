@@ -282,6 +282,16 @@ class PayPalCheckoutClient {
   }
 
   /**
+   * Voids, or cancels, an authorized payment, by ID.
+   *
+   * @param $authorization_id
+   *   The PayPal-generated ID of the authorized payment to void.
+   */
+  public function voidPayment($authorization_id) {
+    return $this->submitRequest('POST', sprintf('v2/payments/authorizations/%s/void', $authorization_id));
+  }
+
+  /**
    * Submits an API request to the PayPal server.
    *
    * @param string $method
