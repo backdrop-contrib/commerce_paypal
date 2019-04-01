@@ -586,7 +586,7 @@ function commerce_paypal_checkout_theme($existing, $type, $theme, $path) {
       'variables' => array(
         'payment_method' => array(),
         'commit' => FALSE,
-        'order_id' => NULL,
+        'order' => NULL,
         'flow' => NULL,
       ),
     ),
@@ -608,26 +608,31 @@ function commerce_paypal_checkout_theme($existing, $type, $theme, $path) {
 function theme_commerce_paypal_checkout_smart_payment_buttons($variables) {
   $payment_method = $variables['payment_method'];
   $settings = $payment_method['settings'];
-  if (empty($settings['client_id']) || empty($variables['order_id']) || empty($variables['flow'])) {
+  if (empty($settings['client_id']) || empty($variables['order']) || empty($variables['flow'])) {
+    return;
+  }
+  $order = $variables['order'];
+  $order_total = field_get_items('commerce_order', $order, 'commerce_order_total', LANGUAGE_NONE);
+  if (!isset($order_total[0]['currency_code'])) {
     return;
   }
   $flow = $variables['flow'];
   list(, $rule_name) = explode('|', $payment_method['instance_id']);
-  $order_id = $variables['order_id'];
   $options = array(
     'external' => TRUE,
     'query' => array(
       'client-id' => $settings['client_id'],
       'commit' => $variables['commit'] ? 'true' : 'false',
       'intent' => $settings['intent'],
+      'currency' => $order_total[0]['currency_code'],
     ),
   );
   $path = drupal_get_path('module', 'commerce_paypal_checkout');
   $settings = array(
     'paypalCheckout' => array(
       'src' => url('https://www.paypal.com/sdk/js', $options),
-      'createOrderUri' => url("commerce-paypal-checkout/create-order/$order_id/$rule_name"),
-      'onApproveUri' => url("commerce-paypal-checkout/approve-order/$order_id/$rule_name/$flow"),
+      'createOrderUri' => url("commerce-paypal-checkout/create-order/$order->order_id/$rule_name"),
+      'onApproveUri' => url("commerce-paypal-checkout/approve-order/$order->order_id/$rule_name/$flow"),
     ),
   );
   drupal_add_css($path . '/css/commerce_paypal_checkout.css');
@@ -694,7 +699,7 @@ function commerce_paypal_checkout_form_alter(&$form, &$form_state, $form_id) {
         '#payment_method' => $payment_method,
         '#commit' => FALSE,
         '#flow' => 'shortcut',
-        '#order_id' => $order->order_id,
+        '#order' => $order,
         '#weight' => 100,
       );
     }
@@ -736,7 +741,7 @@ function commerce_paypal_checkout_redirect_form($form, &$form_state, $order, $pa
     '#theme' => 'commerce_paypal_checkout_smart_payment_buttons',
     '#payment_method' => $payment_method,
     '#commit' => TRUE,
-    '#order_id' => $order->order_id,
+    '#order' => $order,
     '#flow' => 'mark',
   );
   return $form;
