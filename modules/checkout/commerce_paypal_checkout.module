@@ -238,6 +238,7 @@ function commerce_paypal_checkout_default_settings() {
     'server' => 'sandbox',
     'intent' => 'capture',
     'disable_funding' => array(),
+    'disable_card' => array(),
     'shipping_preference' => 'get_from_file',
     'update_billing_profiles' => TRUE,
     'enable_on_cart' => TRUE,
@@ -304,6 +305,22 @@ function commerce_paypal_checkout_settings_form($settings = array()) {
     '#default_value' => $settings['disable_funding'],
     '#element_validate' => array('commerce_paypal_checkout_disable_funding_validate'),
   );
+  $form['disable_card'] = array(
+    '#title' => t('Disable card types'),
+    '#description' => t('The disabled cards for the transaction. Any cards passed do not display in the Smart payment buttons. By default, card eligibility is smartly decided based on a variety of factors.'),
+    '#type' => 'checkboxes',
+    '#options' => array(
+      'visa' => t('Visa'),
+      'mastercard' => t('Mastercard'),
+      'amex' => t('American Express'),
+      'discover' => t('Discover'),
+      'jcb' => t('JCB'),
+      'elo' => t('Elo'),
+      'hiper' => t('Hiper'),
+    ),
+    '#default_value' => $settings['disable_card'],
+    '#element_validate' => array('commerce_paypal_checkout_disable_card_validate'),
+  );
   $form['shipping_preference'] = array(
     '#type' => 'radios',
     '#title' => t('Shipping address collection'),
@@ -346,9 +363,26 @@ function commerce_paypal_checkout_settings_form($settings = array()) {
 }
 
 /**
- * Element validate callback for the disable_funding payment method settings.
+ * Element validate callback for the disable_funding payment method setting.
  */
 function commerce_paypal_checkout_disable_funding_validate($element, &$form_state, $form) {
+  form_set_value($element, array_filter($element['#value']), $form_state);
+}
+
+/**
+ * Element validate callback for the disable_card payment method setting.
+ */
+function commerce_paypal_checkout_disable_card_validate($element, &$form_state, $form) {
+  $parents = $element['#parents'];
+  array_pop($parents);
+  $parents[] = 'disable_funding';
+  $disable_funding = drupal_array_get_nested_value($form_state['values'], $parents);
+
+  // When the "card" funding source is disabled, the "disable_card" setting
+  // cannot be specified.
+  if (isset($disable_funding['card'])) {
+    $element['#value'] = array();
+  }
   form_set_value($element, array_filter($element['#value']), $form_state);
 }
 
@@ -657,6 +691,9 @@ function theme_commerce_paypal_checkout_smart_payment_buttons($variables) {
   );
   if (!empty($settings['disable_funding'])) {
     $options['query']['disable-funding'] = implode(',', $settings['disable_funding']);
+  }
+  if (!empty($settings['disable_card'])) {
+    $options['query']['disable-card'] = implode(',', $settings['disable_card']);
   }
   $path = drupal_get_path('module', 'commerce_paypal_checkout');
   $js_settings = array(
