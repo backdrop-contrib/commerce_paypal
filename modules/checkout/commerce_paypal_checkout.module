@@ -237,6 +237,7 @@ function commerce_paypal_checkout_default_settings() {
     'secret' => '',
     'server' => 'sandbox',
     'intent' => 'capture',
+    'disable_funding' => array(),
     'shipping_preference' => 'get_from_file',
     'update_billing_profiles' => TRUE,
     'enable_on_cart' => TRUE,
@@ -291,6 +292,18 @@ function commerce_paypal_checkout_settings_form($settings = array()) {
     ],
     '#default_value' => $settings['intent'],
   );
+  $form['disable_funding'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Disable funding sources'),
+    '#description' => t('The disabled funding sources for the transaction. Any funding sources passed are not displayed in the Smart payment buttons. By default, funding source eligibility is smartly decided based on a variety of factors.'),
+    '#options' => array(
+      'card' => t('Credit or Debit Cards'),
+      'credit' => t('PayPal Credit'),
+      'sepa' => t('SEPA-Lastschrift'),
+    ),
+    '#default_value' => $settings['disable_funding'],
+    '#element_validate' => array('commerce_paypal_checkout_disable_funding_validate'),
+  );
   $form['shipping_preference'] = array(
     '#type' => 'radios',
     '#title' => t('Shipping address collection'),
@@ -330,6 +343,13 @@ function commerce_paypal_checkout_settings_form($settings = array()) {
   );
 
   return $form;
+}
+
+/**
+ * Element validate callback for the disable_funding payment method settings.
+ */
+function commerce_paypal_checkout_disable_funding_validate($element, &$form_state, $form) {
+  form_set_value($element, array_filter($element['#value']), $form_state);
 }
 
 /**
@@ -635,8 +655,11 @@ function theme_commerce_paypal_checkout_smart_payment_buttons($variables) {
       'currency' => $order_total[0]['currency_code'],
     ),
   );
+  if (!empty($settings['disable_funding'])) {
+    $options['query']['disable-funding'] = implode(',', $settings['disable_funding']);
+  }
   $path = drupal_get_path('module', 'commerce_paypal_checkout');
-  $settings = array(
+  $js_settings = array(
     'paypalCheckout' => array(
       'src' => url('https://www.paypal.com/sdk/js', $options),
       'createOrderUri' => url("commerce-paypal-checkout/create-order/$order->order_id/$rule_name"),
@@ -644,7 +667,7 @@ function theme_commerce_paypal_checkout_smart_payment_buttons($variables) {
     ),
   );
   drupal_add_css($path . '/css/commerce_paypal_checkout.css');
-  drupal_add_js($settings, 'setting');
+  drupal_add_js($js_settings, 'setting');
   drupal_add_js($path . '/js/commerce_paypal_checkout.js');
   $id = drupal_html_id('paypal-buttons-container');
   return '<div id="' . $id . '" class="paypal-buttons-container"></div>';
