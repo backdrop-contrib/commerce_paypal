@@ -241,6 +241,7 @@ function commerce_paypal_checkout_default_settings() {
     'disable_card' => array(),
     'shipping_preference' => 'get_from_file',
     'update_billing_profiles' => TRUE,
+    'style' => array(),
     'enable_on_cart' => TRUE,
   );
 
@@ -287,10 +288,10 @@ function commerce_paypal_checkout_settings_form($settings = array()) {
   $form['intent'] = array(
     '#type' => 'radios',
     '#title' => t('Transaction type'),
-    '#options' => [
+    '#options' => array(
       'capture' => t('Capture'),
       'authorize' => t('Authorize'),
-    ],
+    ),
     '#default_value' => $settings['intent'],
   );
   $form['disable_funding'] = array(
@@ -325,9 +326,9 @@ function commerce_paypal_checkout_settings_form($settings = array()) {
     '#type' => 'radios',
     '#title' => t('Shipping address collection'),
     '#description' => t('PayPal Checkout will only request a shipping address if the Shipping module is enabled to store the address in the order.'),
-    '#options' => [
+    '#options' => array(
       'no_shipping' => t('Do not ask for a shipping address at PayPal.'),
-    ],
+    ),
     '#default_value' => 'no_shipping',
   );
 
@@ -353,6 +354,82 @@ function commerce_paypal_checkout_settings_form($settings = array()) {
     );
   }
 
+  $form['customize_buttons'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Smart button style'),
+    '#default_value' => !empty($settings['style']),
+    '#title_display' => 'before',
+    '#field_suffix' => t('Customize'),
+    '#description_display' => 'before',
+    '#element_validate' => array('commerce_paypal_checkout_customize_buttons_validate'),
+  );
+  $form['style'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Settings'),
+    '#description' => t('For more information, please visit <a href="@url" target="_blank">customize the PayPal buttons</a>.', array('@url' => 'https://developer.paypal.com/docs/checkout/integration-features/customize-button/#layout')),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="parameter[payment_method][settings][payment_method][settings][customize_buttons]"]' => array('checked' => TRUE),
+      ),
+    ),
+  );
+  // Define some default values for the style configuration.
+  $settings['style'] += [
+    'layout' => 'vertical',
+    'color' => 'gold',
+    'shape' => 'rect',
+    'label' => 'paypal',
+    'tagline' => FALSE,
+  ];
+  $form['style']['layout'] = array(
+    '#type' => 'select',
+    '#title' => t('Layout'),
+    '#default_value' => $settings['style']['layout'],
+    '#options' => array(
+      'vertical' => t('Vertical (Recommended)'),
+      'horizontal' => t('Horizontal'),
+    ),
+  );
+  $form['style']['color'] = array(
+    '#type' => 'select',
+    '#title' => t('Color'),
+    '#options' => array(
+      'gold' => t('Gold (Recommended)'),
+      'blue' => t('Blue'),
+      'silver' => t('Silver'),
+    ),
+    '#default_value' => $settings['style']['color'],
+  );
+  $form['style']['shape'] = array(
+    '#type' => 'select',
+    '#title' => t('Shape'),
+    '#options' => array(
+      'rect' => t('Rect (Default)'),
+      'pill' => t('Pill'),
+    ),
+    '#default_value' => $settings['style']['shape'],
+  );
+  $form['style']['label'] = array(
+    '#type' => 'select',
+    '#title' => t('Label'),
+    '#options' => array(
+      'paypal' => t('Displays the PayPal logo (Default)'),
+      'checkout' => t('Displays the PayPal Checkout button'),
+      'pay' => t('Displays the Pay With PayPal button and initializes the checkout flow'),
+    ),
+    '#default_value' => $settings['style']['label'],
+  );
+  $form['style']['tagline'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Display tagline'),
+    '#default_value' => $settings['style']['tagline'],
+    '#states' => array(
+      'visible' => array(
+        ':input[name="parameter[payment_method][settings][payment_method][settings][style][layout]"]' => array('value' => 'horizontal'),
+      ),
+    ),
+  );
+
   $form['enable_on_cart'] = array(
     '#type' => 'checkbox',
     '#title' => t('Show the Smart payment buttons on the cart form.'),
@@ -360,6 +437,20 @@ function commerce_paypal_checkout_settings_form($settings = array()) {
   );
 
   return $form;
+}
+
+/**
+ * Element validate callback for the customize_buttons payment method setting.
+ */
+function commerce_paypal_checkout_customize_buttons_validate($element, &$form_state, $form) {
+  // Make sure no style is saved when the the "customize_buttons" checkbox
+  // is unchecked.
+  if (empty($element['#value'])) {
+    $parents = $element['#parents'];
+    array_pop($parents);
+    $parents[] = 'style';
+    drupal_array_set_nested_value($form_state['values'], $parents, array(), TRUE);
+  }
 }
 
 /**
@@ -701,6 +792,7 @@ function theme_commerce_paypal_checkout_smart_payment_buttons($variables) {
       'src' => url('https://www.paypal.com/sdk/js', $options),
       'createOrderUri' => url("commerce-paypal-checkout/create-order/$order->order_id/$rule_name"),
       'onApproveUri' => url("commerce-paypal-checkout/approve-order/$order->order_id/$rule_name/$flow"),
+      'style' => $settings['style'],
     ),
   );
   drupal_add_css($path . '/css/commerce_paypal_checkout.css');

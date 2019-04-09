@@ -30,7 +30,8 @@
                 window.location.href = data.redirectUri;
               }
             });
-          }
+          },
+          style: settings['style']
         }).render('#' + $(this).attr('id'));
       });
     },
