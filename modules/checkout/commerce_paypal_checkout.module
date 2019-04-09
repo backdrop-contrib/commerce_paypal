@@ -325,7 +325,7 @@ function commerce_paypal_checkout_settings_form($settings = array()) {
 
   $form['enable_on_cart'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Show the PayPal Checkout button on the cart form.'),
+    '#title' => t('Show the Smart payment buttons on the cart form.'),
     '#default_value' => $settings['enable_on_cart'],
   );
 
@@ -410,6 +410,7 @@ function commerce_paypal_checkout_prepare_order_request($order, $settings) {
   $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
   $product_line_item_types = commerce_product_line_item_types();
   $item_total = 0;
+  $discount_total = 0;
   $shipping_total = 0;
   $items = array();
   $order_total = $order_wrapper->commerce_order_total->value();
@@ -419,14 +420,14 @@ function commerce_paypal_checkout_prepare_order_request($order, $settings) {
       continue;
     }
     $unit_price = $line_item_wrapper->commerce_unit_price->value();
-    // PayPal Checkout doesn't support passing negative items.
-    if ($unit_price['amount'] < 0) {
-      continue;
-    }
     if ($line_item_wrapper->getBundle() == 'shipping') {
       $shipping_total += $unit_price['amount'];
     }
-    else {
+    elseif ($line_item_wrapper->getBundle() == 'commerce_discount') {
+      $discount_total += -$unit_price['amount'];
+    }
+    // PayPal Checkout doesn't support passing negative items.
+    elseif ($unit_price['amount'] >= 0) {
       $item_total += $line_item_wrapper->commerce_total->amount->value();
       $item = array(
         'name' => mb_substr(commerce_line_item_title($line_item_wrapper->value()), 0, 127),
@@ -468,6 +469,13 @@ function commerce_paypal_checkout_prepare_order_request($order, $settings) {
         'value' => commerce_paypal_price_amount($tax_total, $currency_code),
       );
     }
+  }
+
+  if ($discount_total) {
+    $breakdown['discount'] = array(
+      'currency_code' => $currency_code,
+      'value' => commerce_paypal_price_amount($discount_total, $currency_code),
+    );
   }
 
   $payer = array();
