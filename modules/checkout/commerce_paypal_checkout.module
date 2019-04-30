@@ -445,11 +445,19 @@ function commerce_paypal_checkout_settings_form($settings = array()) {
 function commerce_paypal_checkout_customize_buttons_validate($element, &$form_state, $form) {
   // Make sure no style is saved when the the "customize_buttons" checkbox
   // is unchecked.
+  $parents = $element['#parents'];
+  array_pop($parents);
+  $parents[] = 'style';
   if (empty($element['#value'])) {
-    $parents = $element['#parents'];
-    array_pop($parents);
-    $parents[] = 'style';
     drupal_array_set_nested_value($form_state['values'], $parents, array(), TRUE);
+  }
+  else {
+    $style = drupal_array_get_nested_value($form_state['values'], $parents);
+    // The tagline is not allowed for the vertical layout.
+    if ($style['layout'] == 'vertical') {
+      unset($style['tagline']);
+      drupal_array_set_nested_value($form_state['values'], $parents, $style, TRUE);
+    }
   }
 }
 
@@ -753,14 +761,14 @@ function commerce_paypal_checkout_theme($existing, $type, $theme, $path) {
  *   An associative array containing:
  *   - payment_method: The payment method instance.
  *   - commit: A boolean indicating whether to commit the transaction.
- *   - order_id: The order ID.
+ *   - order: The order.
  *   - flow: The flow ("shortcut"|"mark").
  *
  * @ingroup themeable
  */
 function theme_commerce_paypal_checkout_smart_payment_buttons($variables) {
   $payment_method = $variables['payment_method'];
-  $settings = $payment_method['settings'];
+  $settings = $payment_method['settings'] + commerce_paypal_checkout_default_settings();
   if (empty($settings['client_id']) || empty($variables['order']) || empty($variables['flow'])) {
     return;
   }
