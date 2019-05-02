@@ -751,6 +751,7 @@ function commerce_paypal_wps_languages() {
     ),
     t('By language') => array(
       'da_DK' => t('Danish (for Denmark only)'),
+      'fr_CA' => t('French (for Canada only)'),
       'he_IL' => t('Hebrew (for all)'),
       'id_ID' => t('Indonesian (for Indonesia only)'),
       'jp_JP' => t('Japanese (for Japan only)'),
