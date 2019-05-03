@@ -586,7 +586,7 @@ function commerce_paypal_checkout_prepare_order_request($order, $settings) {
         'name' => mb_substr(commerce_line_item_title($line_item_wrapper->value()), 0, 127),
         'unit_amount' => array(
           'currency_code' => $currency_code,
-          'value' => commerce_paypal_price_amount($unit_price['amount'], $unit_price['currency_code']),
+          'value' => commerce_paypal_checkout_price_amount($unit_price['amount'], $unit_price['currency_code']),
         ),
         'quantity' => intval($line_item_wrapper->quantity->value()),
       );
@@ -603,14 +603,14 @@ function commerce_paypal_checkout_prepare_order_request($order, $settings) {
   $breakdown = array(
     'item_total' => array(
       'currency_code' => $currency_code,
-      'value' => commerce_paypal_price_amount($item_total, $currency_code),
+      'value' => commerce_paypal_checkout_price_amount($item_total, $currency_code),
     ),
   );
 
   if ($shipping_total) {
     $breakdown['shipping'] = array(
       'currency_code' => $currency_code,
-      'value' => commerce_paypal_price_amount($shipping_total, $currency_code),
+      'value' => commerce_paypal_checkout_price_amount($shipping_total, $currency_code),
     );
   }
 
@@ -619,7 +619,7 @@ function commerce_paypal_checkout_prepare_order_request($order, $settings) {
     if ($tax_total) {
       $breakdown['tax_total'] = array(
         'currency_code' => $currency_code,
-        'value' => commerce_paypal_price_amount($tax_total, $currency_code),
+        'value' => commerce_paypal_checkout_price_amount($tax_total, $currency_code),
       );
     }
   }
@@ -627,7 +627,7 @@ function commerce_paypal_checkout_prepare_order_request($order, $settings) {
   if ($discount_total) {
     $breakdown['discount'] = array(
       'currency_code' => $currency_code,
-      'value' => commerce_paypal_price_amount($discount_total, $currency_code),
+      'value' => commerce_paypal_checkout_price_amount($discount_total, $currency_code),
     );
   }
 
@@ -651,7 +651,7 @@ function commerce_paypal_checkout_prepare_order_request($order, $settings) {
         'invoice_id' => $order->order_id . '-' . time(),
         'amount' => array(
           'currency_code' => $currency_code,
-          'value' => commerce_paypal_price_amount($order_total['amount'], $order_total['currency_code']),
+          'value' => commerce_paypal_checkout_price_amount($order_total['amount'], $order_total['currency_code']),
           'breakdown' => $breakdown,
         ),
         'items' => $items,
@@ -1214,4 +1214,20 @@ function commerce_paypal_checkout_update_order($order, $payment_method) {
     watchdog_exception('commerce_paypal_checkout', $exception);
     return FALSE;
   }
+}
+
+/**
+ * Formats a price amount into a decimal value as expected by PayPal.
+ *
+ * @param $amount
+ *   An integer price amount.
+ * @param $currency_code
+ *   The currency code of the price.
+ *
+ * @return
+ *   The decimal price amount as expected by PayPal API servers.
+ */
+function commerce_paypal_checkout_price_amount($amount, $currency_code) {
+  $rounded_amount = commerce_currency_round($amount, commerce_currency_load($currency_code));
+  return number_format(commerce_currency_amount_to_decimal($rounded_amount, $currency_code), 2, '.', '');
 }

@@ -95,7 +95,7 @@ function commerce_paypal_checkout_capture_form_submit($form, &$form_state) {
   $params = array(
     'final_capture' => $order_total['amount'] == $amount,
     'amount' => array(
-      'value' => commerce_paypal_price_amount($amount, $transaction->currency_code),
+      'value' => commerce_paypal_checkout_price_amount($amount, $transaction->currency_code),
       'currency_code' => $transaction->currency_code,
     ),
   );
@@ -260,7 +260,7 @@ function commerce_paypal_checkout_refund_form_submit($form, &$form_state) {
 
   $params = array(
     'amount' => array(
-      'value' => commerce_paypal_price_amount($amount, $transaction->currency_code),
+      'value' => commerce_paypal_checkout_price_amount($amount, $transaction->currency_code),
       'currency_code' => $transaction->currency_code,
     ),
   );
