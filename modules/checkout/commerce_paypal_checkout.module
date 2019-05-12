@@ -714,16 +714,19 @@ function commerce_paypal_checkout_prepare_order_request($order, $settings) {
  *   The formatted address.
  */
 function commerce_paypal_checkout_format_address($address, $profile_type) {
-  $return = array(
-    'address' => array(
-      'address_line_1' => $address['thoroughfare'],
-      'address_line_2' => $address['premise'],
-      'admin_area_2' => mb_substr($address['locality'], 0, 120),
-      'admin_area_1' => $address['administrative_area'],
-      'postal_code' => mb_substr($address['postal_code'], 0, 60),
-      'country_code' => $address['country'],
-    ),
-  );
+  $return = array();
+  if (!empty($address['postal_code'])) {
+    $return = array(
+      'address' => array_filter(array(
+        'address_line_1' => $address['thoroughfare'],
+        'address_line_2' => $address['premise'],
+        'admin_area_2' => mb_substr($address['locality'], 0, 120),
+        'admin_area_1' => $address['administrative_area'],
+        'postal_code' => mb_substr($address['postal_code'], 0, 60),
+        'country_code' => $address['country'],
+      )),
+    );
+  }
   if ($profile_type == 'billing') {
     $return['name'] = array(
       'given_name' => $address['first_name'],
