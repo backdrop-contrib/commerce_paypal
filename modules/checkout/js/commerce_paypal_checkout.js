@@ -4,28 +4,40 @@
  */
 
 (function($) {
-
   Drupal.paypalCheckout = {
+    makeCall: function(url, settings) {
+      var deferred = $.Deferred();
+      settings = settings || {};
+
+      var ajaxSettings = {
+        dataType: 'json',
+        url: url,
+        success: function(data) {
+          deferred.resolve(data);
+        }
+      };
+      $.extend(ajaxSettings, settings);
+      $.ajax(ajaxSettings);
+
+      return deferred.promise();
+    },
     renderButtons: function(settings) {
       $('.paypal-buttons-container').once('rendered').each(function() {
         paypal.Buttons({
           createOrder: function() {
-            return fetch(settings.createOrderUri)
-              .then(function(res) {
-                return res.json();
-              }).then(function(data) {
-                return data.id ? data.id : '';
-              });
+            return Drupal.paypalCheckout.makeCall(settings.createOrderUri).then(function(data) {
+              return data.id;
+            });
           },
           onApprove: function (data) {
-            return fetch(settings.onApproveUri, {
-              method: 'post',
-              body: JSON.stringify({
+            var ajaxSettings = {
+              type: 'POST',
+              contentType: "application/json; charset=utf-8",
+              data: JSON.stringify({
                 id: data.orderID
               })
-            }).then(function(res) {
-              return res.json();
-            }).then(function(data) {
+            };
+            return Drupal.paypalCheckout.makeCall(settings.onApproveUri, ajaxSettings).then(function(data) {
               if (data.hasOwnProperty('redirectUri')) {
                 window.location.href = data.redirectUri;
               }
