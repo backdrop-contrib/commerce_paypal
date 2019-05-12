@@ -6,20 +6,13 @@
 (function($) {
   Drupal.paypalCheckout = {
     makeCall: function(url, settings) {
-      var deferred = $.Deferred();
       settings = settings || {};
-
       var ajaxSettings = {
         dataType: 'json',
-        url: url,
-        success: function(data) {
-          deferred.resolve(data);
-        }
+        url: url
       };
       $.extend(ajaxSettings, settings);
-      $.ajax(ajaxSettings);
-
-      return deferred.promise();
+      return $.ajax(ajaxSettings);
     },
     renderButtons: function(settings) {
       $('.paypal-buttons-container').once('rendered').each(function() {
