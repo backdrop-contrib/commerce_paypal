@@ -23,6 +23,7 @@
             });
           },
           onApprove: function (data) {
+            Drupal.paypalCheckout.addLoader();
             var ajaxSettings = {
               type: 'POST',
               contentType: "application/json; charset=utf-8",
@@ -32,7 +33,7 @@
             };
             return Drupal.paypalCheckout.makeCall(settings.onApproveUri, ajaxSettings).then(function(data) {
               if (data.hasOwnProperty('redirectUri')) {
-                window.location.href = data.redirectUri;
+                window.location.assign(data.redirectUri);
               }
             });
           },
@@ -59,6 +60,12 @@
         }
       };
       waitForSdk(settings);
+    },
+    addLoader: function() {
+      var $background = $('<div id="paypal-background-overlay"></div>');
+      var $loader = $('<div class="paypal-background-overlay-loader"></div>');
+      $background.append($loader);
+      $('body').append($background);
     }
   };
 
