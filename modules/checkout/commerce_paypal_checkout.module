@@ -583,7 +583,7 @@ function commerce_paypal_checkout_prepare_order_request($order, $settings) {
     elseif ($unit_price['amount'] >= 0) {
       $item_total += $line_item_wrapper->commerce_total->amount->value();
       $item = array(
-        'name' => mb_substr(commerce_line_item_title($line_item_wrapper->value()), 0, 127),
+        'name' => mb_substr(strip_tags(commerce_line_item_title($line_item_wrapper->value())), 0, 127),
         'unit_amount' => array(
           'currency_code' => $currency_code,
           'value' => commerce_paypal_checkout_price_amount($unit_price['amount'], $unit_price['currency_code']),
