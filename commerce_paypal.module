@@ -409,7 +409,7 @@ function commerce_paypal_api_request($payment_method, $nvp = array(), $order = N
 
   // Log the response if specified.
   if ($payment_method['settings']['log']['response'] == 'response') {
-    watchdog('commerce_paypal', 'PayPal server response: !param', array('!param' => '<pre>' . check_plain(print_r($response, TRUE)) . '</pre>', WATCHDOG_DEBUG));
+    watchdog('commerce_paypal', 'PayPal server response: !param', array('!param' => '<pre>' . check_plain(print_r($response, TRUE)) . '</pre>'), WATCHDOG_DEBUG);
   }
 
   return $response;

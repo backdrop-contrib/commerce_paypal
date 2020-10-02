@@ -1326,7 +1326,7 @@ function commerce_payflow_api_request($payment_method, $api, $nvp = array(), $or
 
   // Log the response if specified.
   if ($payment_method['settings']['log']['response'] == 'response') {
-    watchdog('commerce_payflow', 'Payflow server response: !param', array('!param' => '<pre>' . check_plain(print_r($response, TRUE)) . '</pre>', WATCHDOG_DEBUG));
+    watchdog('commerce_payflow', 'Payflow server response: !param', array('!param' => '<pre>' . check_plain(print_r($response, TRUE)) . '</pre>'), WATCHDOG_DEBUG);
   }
 
   return $response;
