@@ -925,8 +925,8 @@ function commerce_paypal_checkout_redirect_form_validate($order, $payment_method
   $payment_method['settings'] += commerce_paypal_checkout_default_settings();
 
   // Check if the PayPal order ID is known, as well as the "flow".
-  if (empty($order->data['commerce_paypal_checkout']['remote_id'] ||
-    !isset($order->data['commerce_paypal_checkout']['flow']))) {
+  if (empty($order->data['commerce_paypal_checkout']['remote_id']) ||
+    !isset($order->data['commerce_paypal_checkout']['flow'])) {
     return FALSE;
   }
   $flow = $order->data['commerce_paypal_checkout']['flow'];
