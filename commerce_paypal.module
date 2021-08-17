@@ -631,6 +631,9 @@ function commerce_paypal_payment_methods() {
     'mastercard' => t('Mastercard'),
     'amex' => t('American Express'),
     'discover' => t('Discover'),
+    'dinersclub' => t('Diners Club'),
+    'jcb' => t('JCB'),
+    'unionpay' => t('UnionPay'),
     'echeck' => t('eCheck'),
     'paypal' => t('PayPal'),
   );
@@ -645,7 +648,7 @@ function commerce_paypal_payment_methods() {
  *
  * @return
  *   The array of themed payment method icons keyed by name: visa, mastercard,
- *   amex, discover, echeck, paypal
+ *   amex, discover, echeck, paypal, dinersclub, unionpay, jcb
  */
 function commerce_paypal_icons($methods = array()) {
   $icons = array();
