@@ -502,7 +502,8 @@ function commerce_paypal_checkout_create_order($order, $payment_method) {
     $request_body = commerce_paypal_checkout_prepare_order_request($order, $payment_method['settings']);
     drupal_alter('commerce_paypal_checkout_create_order_request', $request_body, $order);
     $json = $api_client->createOrder($request_body);
-    drupal_json_output(array('id' => $json['id']));
+    drupal_add_http_header('Content-Type', 'text/plain');
+    echo isset($json['id']) ? $json['id'] : '';
     drupal_exit();
   }
   catch (\Exception $exception) {

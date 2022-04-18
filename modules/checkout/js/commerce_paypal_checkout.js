@@ -18,9 +18,10 @@
       $('.paypal-buttons-container').once('rendered').each(function() {
         paypal.Buttons({
           createOrder: function() {
-            return Drupal.paypalCheckout.makeCall(settings.createOrderUri).then(function(data) {
-              return data.id;
-            });
+            var ajaxSettings = {
+              dataType: 'text',
+            };
+            return Drupal.paypalCheckout.makeCall(settings.createOrderUri, ajaxSettings);
           },
           onApprove: function (data) {
             Drupal.paypalCheckout.addLoader();
