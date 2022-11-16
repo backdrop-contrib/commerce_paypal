@@ -858,7 +858,7 @@ function commerce_paypal_checkout_form_alter(&$form, &$form_state, $form_id) {
   // If we're altering a shopping cart form.
   if (strpos($form_id, 'views_form_commerce_cart_form_') === 0) {
     // If the cart form View shows line items...
-    if (!empty($form_state['build_info']['args'][0]->result)) {
+    if (!empty($form_state['build_info']['args'][0]->result) && !empty($form_state['order'])) {
       $order = $form_state['order'];
       $payment_method = commerce_paypal_checkout_get_payment_method_instance($order);
 
