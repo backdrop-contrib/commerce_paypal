@@ -4,7 +4,7 @@
  */
 
 (function ($) {
-  Drupal.behaviors.commercePaypalEc = {
+  Backdrop.behaviors.commercePaypalEc = {
     attach: function (context, settings) {
       $('.paypal-bml-popin-text').hide();
       $('.paypal-bml-popin').click(function (event) {

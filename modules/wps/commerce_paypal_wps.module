@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Implements PayPal Website Payments Standard in Drupal Commerce checkout.
+ * Implements PayPal Website Payments Standard in Backdrop Commerce checkout.
  */
 
 
@@ -168,7 +168,7 @@ function commerce_paypal_wps_form_commerce_checkout_form_alter(&$form, &$form_st
         $value .= '<div class="commerce-paypal-icons"><span class="label">' . t('Includes:') . '</span>' . implode(' ', $icons) . '</div>';
 
         // Add the CSS.
-        $form['commerce_payment']['payment_method']['#attached']['css'][] = drupal_get_path('module', 'commerce_paypal_wps') . '/theme/commerce_paypal_wps.theme.css';
+        $form['commerce_payment']['payment_method']['#attached']['css'][] = backdrop_get_path('module', 'commerce_paypal_wps') . '/theme/commerce_paypal_wps.theme.css';
 
         break;
       }
@@ -183,7 +183,7 @@ function commerce_paypal_wps_form_commerce_checkout_form_alter(&$form, &$form_st
 function commerce_paypal_wps_redirect_form($form, &$form_state, $order, $payment_method) {
   // Return an error if the enabling action's settings haven't been configured.
   if (empty($payment_method['settings']['business'])) {
-    drupal_set_message(t('PayPal WPS is not configured for use. No PayPal e-mail address has been specified.'), 'error');
+    backdrop_set_message(t('PayPal WPS is not configured for use. No PayPal e-mail address has been specified.'), 'error');
     return array();
   }
 
@@ -347,7 +347,7 @@ function commerce_paypal_wps_paypal_ipn_process($order, $payment_method, &$ipn) 
     if ($order_wrapper->commerce_customer_billing->value() === NULL) {
       // Ensure we have the required data in the IPN.
       if (empty($ipn['residence_country']) || empty($ipn['first_name']) || empty($ipn['last_name'])) {
-        $data = array_intersect_key($ipn, drupal_map_assoc(array('residence_country', 'first_name', 'last_name')));
+        $data = array_intersect_key($ipn, backdrop_map_assoc(array('residence_country', 'first_name', 'last_name')));
         watchdog('commerce_paypal_wps', 'A billing profile for Order @order_number could not be created due to insufficient data in the IPN:!data', array('@order_number' => $order->order_number, '!data' => '<pre>'. check_plain(print_r($data, TRUE)) .'</pre>'), WATCHDOG_WARNING);
       }
       else {
@@ -480,8 +480,7 @@ function commerce_paypal_wps_order_form($form, &$form_state, $order, $settings) 
     'amount_1' => commerce_paypal_price_amount(commerce_currency_convert($amount, $order_currency_code, $currency_code), $currency_code),
     'item_name_1' => t('Order @order_number at @store', array(
       '@order_number' => $order->order_number,
-      '@store' => variable_get('site_name',
-        url('<front>', array('absolute' => TRUE))),
+      '@store' => config_get('system.core', 'site_name'),
     )),
     'on0_1' => t('Product count'),
     'os0_1' => commerce_line_items_quantity($wrapper->commerce_line_items, $line_item_types),
@@ -498,12 +497,12 @@ function commerce_paypal_wps_order_form($form, &$form_state, $order, $settings) 
     $data['state'] = $billing_address['administrative_area'];
     $data['zip'] = substr($billing_address['postal_code'], 0, 32);
     $data['country'] = $billing_address['country'];
-    $data['first_name'] = drupal_substr($billing_address['first_name'], 0, 32);
-    $data['last_name'] = drupal_substr($billing_address['last_name'], 0, 32);
+    $data['first_name'] = backdrop_substr($billing_address['first_name'], 0, 32);
+    $data['last_name'] = backdrop_substr($billing_address['last_name'], 0, 32);
   }
 
   // Allow modules to alter parameters of the API request.
-  drupal_alter('commerce_paypal_wps_order_form_data', $data, $order);
+  backdrop_alter('commerce_paypal_wps_order_form_data', $data, $order);
 
   $form['#action'] = commerce_paypal_wps_server_url($settings['server']);
 

@@ -83,8 +83,8 @@ function commerce_paypal_wpp_capture_form_validate($form, &$form_state) {
 
   // If the authorization has expired, display an error message and redirect.
   if (REQUEST_TIME - $transaction->created > 86400 * 29) {
-    drupal_set_message(t('This authorization has passed its 29 day limit and cannot be captured.'), 'error');
-    drupal_goto('admin/commerce/orders/' . $form_state['order']->order_id . '/payment');
+    backdrop_set_message(t('This authorization has passed its 29 day limit and cannot be captured.'), 'error');
+    backdrop_goto('admin/commerce/orders/' . $form_state['order']->order_id . '/payment');
   }
 }
 
@@ -136,9 +136,9 @@ function commerce_paypal_wpp_capture_form_submit($form, &$form_state) {
       $authorization_valid = FALSE;
 
       // Display a failure message on the redirect.
-      drupal_set_message(t('PayPal requires a reauthorization before capture after 3 days have passed since the initial authorization.'), 'error');
-      drupal_set_message(t('Reauthorization failed with the following error, so the transaction could not capture and will remain in a pending status.'), 'error');
-      drupal_set_message(check_plain($response['L_LONGMESSAGE0']), 'error');
+      backdrop_set_message(t('PayPal requires a reauthorization before capture after 3 days have passed since the initial authorization.'), 'error');
+      backdrop_set_message(t('Reauthorization failed with the following error, so the transaction could not capture and will remain in a pending status.'), 'error');
+      backdrop_set_message(check_plain($response['L_LONGMESSAGE0']), 'error');
     }
   }
 
@@ -163,7 +163,7 @@ function commerce_paypal_wpp_capture_form_submit($form, &$form_state) {
     switch ($response['ACK']) {
       case 'SuccessWithWarning':
       case 'Success':
-        drupal_set_message(t('Prior authorization captured successfully.'));
+        backdrop_set_message(t('Prior authorization captured successfully.'));
 
         // If this capture did not complete the authorization and subsequent
         // captures can be processed against it, create a follow-up transaction
@@ -174,7 +174,7 @@ function commerce_paypal_wpp_capture_form_submit($form, &$form_state) {
           $new_transaction->amount = $transaction_balance;
           commerce_payment_transaction_save($new_transaction);
 
-          drupal_set_message(t("A follow-up transaction was made to represent the remaining authorization amount that can be captured within PayPal's allowed time limit."));
+          backdrop_set_message(t("A follow-up transaction was made to represent the remaining authorization amount that can be captured within PayPal's allowed time limit."));
         }
 
         // Update the original transaction amount to the actual capture amount,
@@ -191,8 +191,8 @@ function commerce_paypal_wpp_capture_form_submit($form, &$form_state) {
 
       default:
         // Display an error message but leave the transaction pending.
-        drupal_set_message(t('Prior authorization capture failed, so the transaction will remain in a pending status.'), 'error');
-        drupal_set_message(check_plain($response['L_LONGMESSAGE0']), 'error');
+        backdrop_set_message(t('Prior authorization capture failed, so the transaction will remain in a pending status.'), 'error');
+        backdrop_set_message(check_plain($response['L_LONGMESSAGE0']), 'error');
         break;
     }
   }

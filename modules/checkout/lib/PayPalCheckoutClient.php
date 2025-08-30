@@ -14,7 +14,7 @@
  *
  * $client = new PayPalCheckout\Client(...);
  *
- * Unfortunately, Drupal 7 does not support namespaces in its autoloader, as it
+ * Unfortunately, Backdrop does not support namespaces in its autoloader, as it
  * maintains compatibility with previous versions of PHP that did not support
  * namespaces. Thus this library does not currently use a namespace.
  */
@@ -133,7 +133,7 @@ class PayPalCheckoutClient {
       curl_close($ch);
     }
 
-    $json = drupal_json_decode($response);
+    $json = backdrop_json_decode($response);
 
     if ($response_info['http_code'] == 401) {
       // Throw an exception indicating authentication failed.
@@ -156,12 +156,12 @@ class PayPalCheckoutClient {
    * @throws PayPalCheckoutAuthenticationException
    */
   public function getAccessToken() {
-    $access_token = variable_get('commerce_paypal_checkout_access_token', array());
+    $access_token = config_get('commerce_paypal_checkout.settings', 'access_token', array());
     if (!empty($access_token['token']) && $access_token['expires'] > time()) {
       return $access_token['token'];
     }
     $response = $this->acquireAccessToken();
-    variable_set('commerce_paypal_checkout_access_token', array(
+    config_set('commerce_paypal_checkout.settings', 'access_token', array(
       'token' => $response['access_token'],
       'expires' => time() + $response['expires_in'],
     ));
@@ -319,7 +319,7 @@ class PayPalCheckoutClient {
     if (!empty($parameters)) {
       if ($this->headers['Content-Type'] == 'application/json') {
         // JSON encode the fields and set them to the request body.
-        curl_setopt($ch, CURLOPT_POSTFIELDS, drupal_json_encode($parameters));
+        curl_setopt($ch, CURLOPT_POSTFIELDS, backdrop_json_encode($parameters));
       }
       else {
         curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($parameters, '', '&'));
@@ -345,11 +345,11 @@ class PayPalCheckoutClient {
       if ($this->retryCount < static::RETRY_LIMIT) {
         $this->retryCount++;
         // Ensure we get a fresh access token next time.
-        variable_del('commerce_paypal_checkout_access_token');
+        config_clear('commerce_paypal_checkout.settings', 'access_token');
         return $this->submitRequest($method, $path, $parameters);
       }
 
-      $json = drupal_json_decode($response);
+      $json = backdrop_json_decode($response);
       // Throw an exception indicating authentication failed.
       $message = 'Authentication failed.';
       if (isset($json['error_description'])) {
@@ -373,7 +373,7 @@ class PayPalCheckoutClient {
 
     // Attempt to convert the response body to an associative array.
     try {
-      $json = drupal_json_decode($response);
+      $json = backdrop_json_decode($response);
     }
     catch (\Exception $e) {
       throw new PayPalCheckoutInvalidResponseJsonException('The API response string could not be parsed as JSON.');

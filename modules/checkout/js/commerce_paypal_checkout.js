@@ -4,7 +4,7 @@
  */
 
 (function($) {
-  Drupal.paypalCheckout = {
+  Backdrop.paypalCheckout = {
     makeCall: function(url, settings) {
       settings = settings || {};
       var ajaxSettings = {
@@ -21,10 +21,10 @@
             var ajaxSettings = {
               dataType: 'text',
             };
-            return Drupal.paypalCheckout.makeCall(settings.createOrderUri, ajaxSettings);
+            return Backdrop.paypalCheckout.makeCall(settings.createOrderUri, ajaxSettings);
           },
           onApprove: function (data) {
-            Drupal.paypalCheckout.addLoader();
+            Backdrop.paypalCheckout.addLoader();
             var ajaxSettings = {
               type: 'POST',
               contentType: "application/json; charset=utf-8",
@@ -32,7 +32,7 @@
                 id: data.orderID
               })
             };
-            return Drupal.paypalCheckout.makeCall(settings.onApproveUri, ajaxSettings).then(function(data) {
+            return Backdrop.paypalCheckout.makeCall(settings.onApproveUri, ajaxSettings).then(function(data) {
               if (data.hasOwnProperty('redirectUri')) {
                 window.location.assign(data.redirectUri);
               }
@@ -52,7 +52,7 @@
       }
       var waitForSdk = function(settings) {
         if (typeof paypal !== 'undefined') {
-          Drupal.paypalCheckout.renderButtons(settings);
+          Backdrop.paypalCheckout.renderButtons(settings);
         }
         else {
           setTimeout(function() {
@@ -70,9 +70,9 @@
     }
   };
 
-  Drupal.behaviors.commercePaypalCheckout = {
+  Backdrop.behaviors.commercePaypalCheckout = {
     attach: function(context, settings) {
-      Drupal.paypalCheckout.initialize(context, settings.paypalCheckout);
+      Backdrop.paypalCheckout.initialize(context, settings.paypalCheckout);
     }
   };
 

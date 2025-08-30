@@ -41,7 +41,7 @@ function commerce_paypal_ec_review_pane_settings_form($checkout_pane) {
       '#type' => 'checkboxes',
       '#title' => t('Checkout panes to include on the Express Checkout review and confirm page'),
       '#options' => $options,
-      '#default_value' => variable_get('commerce_paypal_ec_review_embedded_panes', array()),
+      '#default_value' => config_get('commerce_paypal_ec.settings', 'review_embedded_panes'),
     );
   }
 
@@ -54,7 +54,7 @@ function commerce_paypal_ec_review_pane_settings_form($checkout_pane) {
  *
  */
 function commerce_paypal_ec_review_pane_checkout_form(&$form, &$form_state, $checkout_pane, $order) {
-  $form_state['build_info']['files']['pane'] = drupal_get_path('module', 'commerce_paypal_ec') . '/includes/commerce_paypal_ec.checkout_pane.inc';
+  $form_state['build_info']['files']['pane'] = backdrop_get_path('module', 'commerce_paypal_ec') . '/includes/commerce_paypal_ec.checkout_pane.inc';
   $form_state['order'] = $order;
 
   // Adjust the weights of the help text and pane form to appear before the

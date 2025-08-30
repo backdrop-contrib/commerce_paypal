@@ -42,7 +42,7 @@ function commerce_paypal_checkout_review_pane_settings_form() {
       '#type' => 'checkboxes',
       '#title' => t('Checkout panes to include on the PayPal Checkout review and confirm page'),
       '#options' => $options,
-      '#default_value' => variable_get('commerce_paypal_checkout_review_embedded_panes', array()),
+      '#default_value' => config_get('commerce_paypal_checkout.settings', 'review_embedded_panes'),
     );
   }
 
@@ -54,7 +54,7 @@ function commerce_paypal_checkout_review_pane_settings_form() {
  * final details of the order and provide any final information required.
  */
 function commerce_paypal_checkout_review_pane_checkout_form(&$form, &$form_state, $checkout_pane, $order) {
-  $form_state['build_info']['files']['pane'] = drupal_get_path('module', 'commerce_paypal_checkout') . '/includes/commerce_paypal_checkout.checkout_pane.inc';
+  $form_state['build_info']['files']['pane'] = backdrop_get_path('module', 'commerce_paypal_checkout') . '/includes/commerce_paypal_checkout.checkout_pane.inc';
   $form_state['order'] = $order;
 
   // Adjust the weights of the help text and pane form to appear before the
@@ -177,10 +177,10 @@ function commerce_paypal_checkout_review_pane_checkout_form_submit($form, &$form
   $order = $form_state['order'];
   $payment_method = commerce_payment_method_instance_load($order->data['payment_method']);
   // Update the order in PayPal to make sure it reflects the current state of
-  // the order in Drupal.
+  // the order in Backdrop.
   // If the order could not be updated in PayPal, stop here.
   if (!commerce_paypal_checkout_update_order($order, $payment_method)) {
-    drupal_set_message(t('We could not complete your payment with PayPal. Please try again or contact us if the problem persists.'), 'error');
+    backdrop_set_message(t('We could not complete your payment with PayPal. Please try again or contact us if the problem persists.'), 'error');
     watchdog('commerce_paypal_checkout', 'Could not update the PayPal order for order @order_number.', array('@order_number' => $order->order_number), WATCHDOG_ERROR);
     return;
   }

@@ -76,8 +76,8 @@ function commerce_paypal_checkout_capture_form_validate($form, &$form_state) {
 
   // If the authorization has expired, display an error message and redirect.
   if (REQUEST_TIME - $transaction->created > 86400 * 29) {
-    drupal_set_message(t('This authorization has passed its 29 day limit and cannot be captured.'), 'error');
-    drupal_goto('admin/commerce/orders/' . $form_state['order']->order_id . '/payment');
+    backdrop_set_message(t('This authorization has passed its 29 day limit and cannot be captured.'), 'error');
+    backdrop_goto('admin/commerce/orders/' . $form_state['order']->order_id . '/payment');
   }
 }
 
@@ -126,7 +126,7 @@ function commerce_paypal_checkout_capture_form_submit($form, &$form_state) {
   catch (PayPalCheckoutHttpException $exception) {
     watchdog_exception('commerce_paypal_checkout', $exception);
     // Display an error message but leave the transaction pending.
-    drupal_set_message(t('Prior authorization capture failed, so the transaction will remain in a pending status.'), 'error');
+    backdrop_set_message(t('Prior authorization capture failed, so the transaction will remain in a pending status.'), 'error');
   }
 
   // Redirect back to the current order payment page.
@@ -171,7 +171,7 @@ function commerce_paypal_checkout_void_form_submit($form, &$form_state) {
     // This API call doesn't return content, so nothing to check, if no
     // exception is thrown, this means the void operation succeeded.
     $api_client->voidPayment($transaction->remote_id);
-    drupal_set_message(t('Transaction successfully voided.'));
+    backdrop_set_message(t('Transaction successfully voided.'));
 
     // Set the remote and local status accordingly.
     $transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
@@ -182,7 +182,7 @@ function commerce_paypal_checkout_void_form_submit($form, &$form_state) {
     commerce_payment_transaction_save($transaction);
   }
   catch (PayPalCheckoutHttpException $exception) {
-    drupal_set_message(t('The void operation failed, so the transaction will remain in a pending status.'), 'error');
+    backdrop_set_message(t('The void operation failed, so the transaction will remain in a pending status.'), 'error');
   }
   $form_state['redirect'] = 'admin/commerce/orders/' . $form_state['order']->order_id . '/payment';
 }
@@ -240,8 +240,8 @@ function commerce_paypal_checkout_refund_form_validate($form, &$form_state) {
 
   // If the transaction is older than 60 days, display an error message and redirect.
   if (time() - $transaction->created > 86400 * 60) {
-    drupal_set_message(t('This transaction has passed its 60 day limit for issuing refunds.'), 'error');
-    drupal_goto('admin/commerce/orders/' . $form_state['order']->order_id . '/payment');
+    backdrop_set_message(t('This transaction has passed its 60 day limit for issuing refunds.'), 'error');
+    backdrop_goto('admin/commerce/orders/' . $form_state['order']->order_id . '/payment');
   }
 }
 
@@ -268,10 +268,10 @@ function commerce_paypal_checkout_refund_form_submit($form, &$form_state) {
     $response = $api_client->refundPayment($transaction->remote_id, $params);
     // Not sure this can happen...
     if (strtolower($response['status']) != 'completed') {
-      drupal_set_message(t('Refund failed'));
+      backdrop_set_message(t('Refund failed'));
     }
     else {
-      drupal_set_message(t('Refund for @amount issued successfully.', array('@amount' => commerce_currency_format($amount, $transaction->currency_code))));
+      backdrop_set_message(t('Refund for @amount issued successfully.', array('@amount' => commerce_currency_format($amount, $transaction->currency_code))));
 
       // Create a new transaction to record the credit.
       $credit_transaction = commerce_payment_transaction_new($payment_method['method_id'], $order->order_id);
@@ -290,7 +290,7 @@ function commerce_paypal_checkout_refund_form_submit($form, &$form_state) {
   }
   catch (PayPalCheckoutHttpException $exception) {
     watchdog_exception('commerce_paypal_checkout', $exception);
-    drupal_set_message(t('Refund failed'));
+    backdrop_set_message(t('Refund failed'));
   }
 
   $form_state['redirect'] = 'admin/commerce/orders/' . $order->order_id . '/payment';

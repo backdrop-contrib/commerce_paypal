@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Implements PayPal Website Payments Pro in Drupal Commerce checkout.
+ * Implements PayPal Website Payments Pro in Backdrop Commerce checkout.
  */
 
 
@@ -15,7 +15,7 @@ function commerce_paypal_wpp_menu() {
   // Add a menu item for capturing authorizations.
   $items['admin/commerce/orders/%commerce_order/payment/%commerce_payment_transaction/paypal-wpp-capture'] = array(
     'title' => 'Capture',
-    'page callback' => 'drupal_get_form',
+    'page callback' => 'backdrop_get_form',
     'page arguments' => array('commerce_paypal_wpp_capture_form', 3, 5),
     'access callback' => 'commerce_paypal_wpp_capture_access',
     'access arguments' => array(3, 5),
@@ -85,7 +85,7 @@ function commerce_paypal_wpp_default_settings() {
     'api_signature' => '',
     'server' => 'sandbox',
     'code' => TRUE,
-    'card_types' => drupal_map_assoc(array('visa', 'mastercard', 'amex', 'discover', 'dinersclub', 'jcb', 'unionpay')),
+    'card_types' => backdrop_map_assoc(array('visa', 'mastercard', 'amex', 'discover', 'dinersclub', 'jcb', 'unionpay')),
     'currency_code' => in_array($default_currency, array_keys(commerce_paypal_currencies('paypal_wpp'))) ? $default_currency : 'USD',
     'allow_supported_currencies' => FALSE,
     'txn_type' => COMMERCE_CREDIT_AUTH_CAPTURE,
@@ -131,7 +131,7 @@ function commerce_paypal_wpp_settings_form($settings = array()) {
     '#type' => 'checkboxes',
     '#title' => t('Limit accepted credit cards to the following types'),
     '#description' => t('American Express is not available in the UK. Only MasterCard and Visa are available in Canada. If you enable Maestro or Solo, you must use GBP as your currency code.'),
-    '#options' => array_intersect_key(commerce_payment_credit_card_types(), drupal_map_assoc(array('visa', 'mastercard', 'amex', 'discover', 'maestro', 'solo', 'jcb', 'dinersclub', 'unionpay'))),
+    '#options' => array_intersect_key(commerce_payment_credit_card_types(), backdrop_map_assoc(array('visa', 'mastercard', 'amex', 'discover', 'maestro', 'solo', 'jcb', 'dinersclub', 'unionpay'))),
     '#default_value' => $settings['card_types'],
     '#required' => TRUE,
   );
@@ -233,7 +233,7 @@ function commerce_paypal_wpp_submit_form_submit($payment_method, $pane_form, $pa
   // Display an error and prevent the payment attempt if PayPal WPP has not been
   // configured yet.
   if (empty($payment_method['settings'])) {
-    drupal_set_message(t('This payment method must be configured by an administrator before it can be used.'), 'error');
+    backdrop_set_message(t('This payment method must be configured by an administrator before it can be used.'), 'error');
     return FALSE;
   }
 
@@ -241,13 +241,13 @@ function commerce_paypal_wpp_submit_form_submit($payment_method, $pane_form, $pa
   $ip_address = ip_address();
 
   // Fallback to the localhost address if ip_address() did not return a value.
-  // This could happen due to Drupal having incorrect reverse_proxy settings.
+  // This could happen due to Backdrop having incorrect reverse_proxy settings.
   if (empty($ip_address)) {
     $ip_address = '127.0.0.1';
   }
 
   if (!filter_var($ip_address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_IPV6)) {
-    drupal_set_message(t('This payment method is not supported by the current web server configuration.'), 'error');
+    backdrop_set_message(t('This payment method is not supported by the current web server configuration.'), 'error');
     watchdog('commerce_paypal_wpp', 'PayPal WPP must be able to retrieve an IPv4 or IPv6 IP address from the ip_address() function.', array(), WATCHDOG_ERROR);
     return FALSE;
   }
@@ -302,7 +302,7 @@ function commerce_paypal_wpp_submit_form_submit($payment_method, $pane_form, $pa
   // prevent the payment attempt.
   if (!$valid_billing_address) {
     // Display a general error to the customer if we can't find the address.
-    drupal_set_message(t('We cannot process your credit card payment without a valid billing address.'), 'error');
+    backdrop_set_message(t('We cannot process your credit card payment without a valid billing address.'), 'error');
 
     // Provide a more descriptive error message in the failed transaction and
     // the watchdog.
@@ -379,8 +379,8 @@ function commerce_paypal_wpp_submit_form_submit($payment_method, $pane_form, $pa
     // Customer Information.
     'EMAIL' => substr($order->mail, 0, 127),
     'IPADDRESS' => substr($ip_address, 0, filter_var($ip_address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) ? 15 : 45),
-    'FIRSTNAME' => drupal_substr($billing_address['first_name'], 0, 25),
-    'LASTNAME' => drupal_substr($billing_address['last_name'], 0, 25),
+    'FIRSTNAME' => backdrop_substr($billing_address['first_name'], 0, 25),
+    'LASTNAME' => backdrop_substr($billing_address['last_name'], 0, 25),
     'STREET' => substr($billing_address['thoroughfare'], 0, 100),
     'STREET2' => substr($billing_address['premise'], 0, 100),
     'CITY' => substr($billing_address['locality'], 0, 40),
@@ -460,7 +460,7 @@ function commerce_paypal_wpp_submit_form_submit($payment_method, $pane_form, $pa
 
   // If the payment failed, display an error and rebuild the form.
   if (!in_array($response['ACK'], array('SuccessWithWarning', 'Success'))) {
-    drupal_set_message(t('We encountered an error processing your payment. Please verify your credit card details or try a different card.'), 'error');
+    backdrop_set_message(t('We encountered an error processing your payment. Please verify your credit card details or try a different card.'), 'error');
     return FALSE;
   }
 }

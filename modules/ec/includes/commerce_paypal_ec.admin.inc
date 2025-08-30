@@ -82,8 +82,8 @@ function commerce_paypal_ec_capture_form_validate($form, &$form_state) {
 
   // If the authorization has expired, display an error message and redirect.
   if (REQUEST_TIME - $transaction->created > 86400 * 29) {
-    drupal_set_message(t('This authorization has passed its 29 day limit and cannot be captured.'), 'error');
-    drupal_goto('admin/commerce/orders/' . $form_state['order']->order_id . '/payment');
+    backdrop_set_message(t('This authorization has passed its 29 day limit and cannot be captured.'), 'error');
+    backdrop_goto('admin/commerce/orders/' . $form_state['order']->order_id . '/payment');
   }
 }
 
@@ -118,7 +118,7 @@ function commerce_paypal_ec_capture_form_submit($form, &$form_state) {
 
   switch ($response['ACK']) {
     case 'Success':
-      drupal_set_message(t('Prior authorization captured successfully.'));
+      backdrop_set_message(t('Prior authorization captured successfully.'));
 
       // Update the original transaction amount to the actual capture amount,
       // its remote ID to the capture's transaction ID, and its statuses to
@@ -139,10 +139,10 @@ function commerce_paypal_ec_capture_form_submit($form, &$form_state) {
 
     default:
       // Display an error message but leave the transaction pending.
-      drupal_set_message(t('Prior authorization capture failed, so the transaction will remain in a pending status.'), 'error');
+      backdrop_set_message(t('Prior authorization capture failed, so the transaction will remain in a pending status.'), 'error');
 
       if (isset($response['L_LONGMESSAGE0'])) {
-        drupal_set_message(check_plain($response['L_LONGMESSAGE0']), 'error');
+        backdrop_set_message(check_plain($response['L_LONGMESSAGE0']), 'error');
       }
 
       break;
@@ -202,7 +202,7 @@ function commerce_paypal_ec_void_form_submit($form, &$form_state) {
 
   // If we got an approval response code...
   if ($response['ACK'] == 'Success') {
-    drupal_set_message(t('Transaction successfully voided.'));
+    backdrop_set_message(t('Transaction successfully voided.'));
 
     // Set the remote and local status accordingly.
     $transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
@@ -212,7 +212,7 @@ function commerce_paypal_ec_void_form_submit($form, &$form_state) {
     $transaction->message .= '<br />' . t('Voided: @date', array('@date' => format_date(REQUEST_TIME, 'short')));
   }
   else {
-    drupal_set_message(t('The void operation failed, so the transaction will remain in a pending status.'), 'error');
+    backdrop_set_message(t('The void operation failed, so the transaction will remain in a pending status.'), 'error');
   }
 
   commerce_payment_transaction_save($transaction);
@@ -273,8 +273,8 @@ function commerce_paypal_ec_refund_form_validate($form, &$form_state) {
 
   // If the transaction is older than 60 days, display an error message and redirect.
   if (time() - $transaction->created > 86400 * 60) {
-    drupal_set_message(t('This transaction has passed its 60 day limit for issuing refunds.'), 'error');
-    drupal_goto('admin/commerce/orders/' . $form_state['order']->order_id . '/payment');
+    backdrop_set_message(t('This transaction has passed its 60 day limit for issuing refunds.'), 'error');
+    backdrop_goto('admin/commerce/orders/' . $form_state['order']->order_id . '/payment');
   }
 }
 
@@ -305,7 +305,7 @@ function commerce_paypal_ec_refund_form_submit($form, &$form_state) {
 
   // If the credit succeeded...
   if ($response['ACK'] == 'Success') {
-    drupal_set_message(t('Refund for @amount issued successfully.', array('@amount' => commerce_currency_format($amount, $transaction->currency_code))));
+    backdrop_set_message(t('Refund for @amount issued successfully.', array('@amount' => commerce_currency_format($amount, $transaction->currency_code))));
 
     // Create a new transaction to record the credit.
     $credit_transaction = commerce_payment_transaction_new($payment_method['method_id'], $order->order_id);
@@ -323,7 +323,7 @@ function commerce_paypal_ec_refund_form_submit($form, &$form_state) {
   }
   else {
     // Display a failure message and response reason from Payflow.
-    drupal_set_message(t('Refund failed: @reason', array('@reason' => $response['L_LONGMESSAGE0'])), 'error');
+    backdrop_set_message(t('Refund failed: @reason', array('@reason' => $response['L_LONGMESSAGE0'])), 'error');
 
     // Save the failure response message to the original transaction.
     $transaction->payload[REQUEST_TIME . '-refund'] = $response;
