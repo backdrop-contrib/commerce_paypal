@@ -1,14 +1,14 @@
 Commerce PayPal
 =====
 
-This project integrates Drupal Commerce with various PayPal payment solutions. The primary integration method is [PayPal Checkout](https://developer.paypal.com/docs/checkout/standard/), which supports payment via PayPal account, Pay Later, Venmo, and credit or debit card.
+This project integrates Backdrop Commerce with various PayPal payment solutions. The primary integration method is [PayPal Checkout](https://developer.paypal.com/docs/checkout/standard/), which supports payment via PayPal account, Pay Later, Venmo, and credit or debit card.
 
 Pay Later, formerly known as PayPal Credit, lets merchants extend financing opportunities to their customers, which can be advertised on Add to Cart forms or through a custom block defined by this module. See how it works in the [PayPal documentation](https://developer.paypal.com/docs/checkout/pay-later/us/commerce-platforms/centarro/).
 
 Adding the PayPal funding source to order pages
 --------
 
-PayPal Checkout displays payment buttons based on your Drupal Commerce configuration, the merchant's PayPal account configuration, and the customer's device. The option selected by the customer will be saved to an order's data property as the funding source. However, there is no default place in the user interface to display such information.
+PayPal Checkout displays payment buttons based on your Backdrop Commerce configuration, the merchant's PayPal account configuration, and the customer's device. The option selected by the customer will be saved to an order's data property as the funding source. However, there is no default place in the user interface to display such information.
 
 To show this to your customer or store managers, you will need to edit the relevant theme templates and print the order.funding_source added to the list of available variables by this module. To see if you're eligible to accept Venmo as a funding source, consult the latest [PayPal documentation](https://developer.paypal.com/docs/checkout/pay-with-venmo/#link-eligibility).
 
