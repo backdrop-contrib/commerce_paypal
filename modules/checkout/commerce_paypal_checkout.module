@@ -676,7 +676,7 @@ function commerce_paypal_checkout_prepare_order_request($order, $settings) {
       ),
     ),
     'application_context' => array(
-      'brand_name' => mb_substr(config_get('system.core.', 'site_name'), 0, 127),
+      'brand_name' => mb_substr(config_get('system.core', 'site_name'), 0, 127),
     ),
   );
 
